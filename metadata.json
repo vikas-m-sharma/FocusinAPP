@@ -1,0 +1,6 @@
+{
+  "name": "Focusin",
+  "description": "Plan your time. Protect your focus. Prove your progress. Production-grade focus sessions, smart timetable, distraction tracking, and weekly analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

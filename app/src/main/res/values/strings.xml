@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Focusin</string>
+    <string name="app_tagline">Plan your time. Protect your focus. Prove your progress.</string>
+    <string name="accessibility_service_description">Detects foreground app launches during active Focus sessions to help you block distracting apps and stay on task.</string>
+    <string name="notification_channel_focus">Active Focus Session</string>
+    <string name="notification_channel_focus_desc">Displays ongoing focus timer and controls</string>
+    <string name="notification_channel_reminders">Study Reminders</string>
+    <string name="notification_channel_reminders_desc">Scheduled session reminders and alarms</string>
+</resources>

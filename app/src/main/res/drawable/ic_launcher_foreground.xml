@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Focus Reticle Arcs -->
+    <!-- Top-Left Corner Arc -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 33,42 A 25,25 0 0,1 42,33" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 66,33 A 25,25 0 0,1 75,42" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 75,66 A 25,25 0 0,1 66,75" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 42,75 A 25,25 0 0,1 33,66" />
+
+    <!-- Stylized Focus Hourglass / Diamond -->
+    <!-- Top chamber -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M 40,39 L 68,39 C 68,39 63,50 54,53 C 45,50 40,39 40,39 Z" />
+
+    <!-- Bottom chamber filled with emerald energy -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 54,55 C 63,58 68,69 68,69 L 40,69 C 40,69 45,58 54,55 Z" />
+
+    <!-- Core glowing focus spark / center bead -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 54,54 m -3,0 a 3,3 0 1,0 6,0 a 3,3 0 1,0 -6,0" />
+
+    <!-- Top & Bottom rim bars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 38,36 H 70 V 38.5 H 38 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 38,69.5 H 70 V 72 H 38 Z" />
+</vector>
+
