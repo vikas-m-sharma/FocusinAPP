@@ -161,8 +161,8 @@ fun SubjectsScreen(
         SubjectEditDialog(
             subjectToEdit = null,
             onDismiss = { showAddDialog = false },
-            onSave = { name, colorHex, hours ->
-                viewModel.addSubject(name, colorHex, "School", hours)
+            onSave = { name, description, colorHex, hours ->
+                viewModel.addSubject(name, description, colorHex, "School", hours)
                 showAddDialog = false
             }
         )
@@ -173,10 +173,11 @@ fun SubjectsScreen(
         SubjectEditDialog(
             subjectToEdit = subjectToEdit,
             onDismiss = { subjectToEdit = null },
-            onSave = { name, colorHex, hours ->
+            onSave = { name, description, colorHex, hours ->
                 viewModel.updateSubject(
                     subjectToEdit!!.copy(
                         name = name,
+                        description = description,
                         colorHex = colorHex,
                         targetWeeklyHours = hours
                     )
@@ -216,7 +217,10 @@ fun SubjectDetailCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(12.dp)
@@ -224,12 +228,22 @@ fun SubjectDetailCard(
                             .background(subColor)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = subject.name,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column {
+                        Text(
+                            text = subject.name,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (subject.description.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = subject.description,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
 
                 Row {
@@ -287,9 +301,10 @@ fun SubjectDetailCard(
 fun SubjectEditDialog(
     subjectToEdit: SubjectEntity?,
     onDismiss: () -> Unit,
-    onSave: (name: String, colorHex: String, targetHours: Float) -> Unit
+    onSave: (name: String, description: String, colorHex: String, targetHours: Float) -> Unit
 ) {
     var name by remember { mutableStateOf(subjectToEdit?.name ?: "") }
+    var description by remember { mutableStateOf(subjectToEdit?.description ?: "") }
     var targetHours by remember { mutableFloatStateOf(subjectToEdit?.targetWeeklyHours ?: 10f) }
     var selectedColor by remember { mutableStateOf(subjectToEdit?.colorHex ?: "#38BDF8") }
 
@@ -307,6 +322,19 @@ fun SubjectEditDialog(
                     onValueChange = { name = it },
                     placeholder = { Text("e.g. Mathematics") },
                     singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Description / Goals", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = { Text("e.g. Calculus, problem sets, exam prep") },
+                    maxLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 )
@@ -353,7 +381,7 @@ fun SubjectEditDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotBlank()) onSave(name, selectedColor, targetHours)
+                    if (name.isNotBlank()) onSave(name, description, selectedColor, targetHours)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary)
             ) {

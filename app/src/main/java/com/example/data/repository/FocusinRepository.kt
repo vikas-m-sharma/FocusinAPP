@@ -41,10 +41,17 @@ class FocusinRepository(private val database: AppDatabase) {
         dailyStatsDao.getStatsForDate(dateString)
 
     // Subjects
-    suspend fun insertSubject(name: String, colorHex: String, iconName: String, weeklyHours: Float = 10f): Long {
+    suspend fun insertSubject(
+        name: String,
+        description: String = "",
+        colorHex: String = "#38BDF8",
+        iconName: String = "School",
+        weeklyHours: Float = 10f
+    ): Long {
         return subjectDao.insertSubject(
             SubjectEntity(
                 name = name,
+                description = description,
                 colorHex = colorHex,
                 iconName = iconName,
                 targetWeeklyHours = weeklyHours
@@ -266,7 +273,7 @@ class FocusinRepository(private val database: AppDatabase) {
         }
     }
 
-    // Initialize Default Achievements
+    // Initialize Default Achievements & Starter Subjects
     suspend fun initializeDefaultDataIfNeeded() {
         val defaultAchievements = listOf(
             AchievementEntity("first_session", "First Focus Session", "Completed your very first focused study block.", "Flag"),
@@ -277,16 +284,81 @@ class FocusinRepository(private val database: AppDatabase) {
             AchievementEntity("perfect_day", "Perfect Day", "Achieved full 6+ hours of planned focus in a single day.", "Star")
         )
         achievementDao.insertAll(defaultAchievements)
+
+        // Seed initial starter subjects if none exist yet
+        val existingSubjects = subjectDao.getAllSubjectsList()
+        if (existingSubjects.isEmpty()) {
+            subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Deep Study",
+                    description = "Undistracted textbook reading, syllabus prep & exam practice",
+                    colorHex = "#38BDF8",
+                    iconName = "School",
+                    targetWeeklyHours = 12f
+                )
+            )
+            subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Problem Solving",
+                    description = "Coding challenges, algorithmic thinking & math problems",
+                    colorHex = "#34D399",
+                    iconName = "Calculate",
+                    targetWeeklyHours = 10f
+                )
+            )
+            subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Project Work",
+                    description = "Building core modules, debugging & creative projects",
+                    colorHex = "#A78BFA",
+                    iconName = "Code",
+                    targetWeeklyHours = 8f
+                )
+            )
+        }
+
         getUserSettingsSync()
     }
 
     // Optional Demo Data
     suspend fun seedDemoData() {
         // 1. Subjects
-        val mathId = subjectDao.insertSubject(SubjectEntity(name = "Mathematics", colorHex = "#38BDF8", iconName = "Calculate", targetWeeklyHours = 12f))
-        val physicsId = subjectDao.insertSubject(SubjectEntity(name = "Physics", colorHex = "#A78BFA", iconName = "Science", targetWeeklyHours = 10f))
-        val mlId = subjectDao.insertSubject(SubjectEntity(name = "Machine Learning", colorHex = "#34D399", iconName = "Psychology", targetWeeklyHours = 14f))
-        val progId = subjectDao.insertSubject(SubjectEntity(name = "Programming", colorHex = "#FBBF24", iconName = "Code", targetWeeklyHours = 12f))
+        val mathId = subjectDao.insertSubject(
+            SubjectEntity(
+                name = "Mathematics",
+                description = "Calculus, Linear Algebra & Problem Solving",
+                colorHex = "#38BDF8",
+                iconName = "Calculate",
+                targetWeeklyHours = 12f
+            )
+        )
+        val physicsId = subjectDao.insertSubject(
+            SubjectEntity(
+                name = "Physics",
+                description = "Classical Mechanics, Electromagnetism & Optics",
+                colorHex = "#A78BFA",
+                iconName = "Science",
+                targetWeeklyHours = 10f
+            )
+        )
+        val mlId = subjectDao.insertSubject(
+            SubjectEntity(
+                name = "Machine Learning",
+                description = "Deep Learning, PyTorch models & Math",
+                colorHex = "#34D399",
+                iconName = "Psychology",
+                targetWeeklyHours = 14f
+            )
+        )
+        val progId = subjectDao.insertSubject(
+            SubjectEntity(
+                name = "Programming",
+                description = "Kotlin, Jetpack Compose & Full Stack",
+                colorHex = "#FBBF24",
+                iconName = "Code",
+                targetWeeklyHours = 12f
+            )
+        )
 
         // 2. Timetable Sessions (Mon - Sun)
         val sessions = listOf(

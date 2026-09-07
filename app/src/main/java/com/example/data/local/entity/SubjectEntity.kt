@@ -8,6 +8,7 @@ data class SubjectEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
+    val description: String = "",
     val colorHex: String = "#38BDF8",
     val iconName: String = "School",
     val totalPlannedMinutes: Int = 0,

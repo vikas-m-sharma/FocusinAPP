@@ -334,8 +334,8 @@ fun ScheduleScreen(
                 viewModel.addSession(newSession)
                 showCreateDialog = false
             },
-            onCreateSubject = { name, color ->
-                viewModel.addSubject(name, color, "menu_book", 10f)
+            onCreateSubject = { name, desc, color ->
+                viewModel.addSubject(name, desc, color, "School", 10f)
             }
         )
     }
@@ -352,8 +352,8 @@ fun ScheduleScreen(
                 viewModel.updateSession(updated)
                 sessionToEdit = null
             },
-            onCreateSubject = { name, color ->
-                viewModel.addSubject(name, color, "menu_book", 10f)
+            onCreateSubject = { name, desc, color ->
+                viewModel.addSubject(name, desc, color, "School", 10f)
             }
         )
     }
@@ -584,7 +584,7 @@ fun CreateOrEditSessionDialog(
     sessionToEdit: TimetableSessionEntity?,
     onDismiss: () -> Unit,
     onSave: (TimetableSessionEntity) -> Unit,
-    onCreateSubject: (String, String) -> Unit
+    onCreateSubject: (String, String, String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -614,7 +614,7 @@ fun CreateOrEditSessionDialog(
 
     var focusProtection by remember { mutableStateOf(sessionToEdit?.focusModeEnabled ?: true) }
     var alarmEnabled by remember { mutableStateOf(sessionToEdit?.alarmEnabled ?: true) }
-    var recurrence by remember { mutableStateOf(sessionToEdit?.recurrenceType ?: "WEEKLY") }
+    var recurrence by remember { mutableStateOf(sessionToEdit?.recurrence ?: "WEEKLY") }
     var soundName by remember { mutableStateOf(sessionToEdit?.soundName ?: "Default Chime") }
     var soundUri by remember { mutableStateOf<String?>(sessionToEdit?.soundUri) }
     var selectedVoiceNoteId by remember { mutableStateOf<Long?>(sessionToEdit?.voiceNoteId) }
@@ -760,11 +760,22 @@ fun CreateOrEditSessionDialog(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate700),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text(
-                                    text = selectedSubject?.name ?: "Select Subject",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = selectedSubject?.name ?: "Select Subject",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    if (!selectedSubject?.description.isNullOrBlank()) {
+                                        Text(
+                                            text = selectedSubject!!.description,
+                                            color = CyanPrimary,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
                             DropdownMenu(
                                 expanded = subjectDropdownExpanded,
@@ -773,7 +784,14 @@ fun CreateOrEditSessionDialog(
                             ) {
                                 subjects.forEach { sub ->
                                     DropdownMenuItem(
-                                        text = { Text(sub.name, color = Color.White) },
+                                        text = {
+                                            Column {
+                                                Text(sub.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                                if (sub.description.isNotBlank()) {
+                                                    Text(sub.description, color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                }
+                                            }
+                                        },
                                         onClick = {
                                             selectedSubject = sub
                                             subjectDropdownExpanded = false
@@ -982,7 +1000,7 @@ fun CreateOrEditSessionDialog(
                         voiceNoteId = selectedVoiceNoteId,
                         soundUri = soundUri,
                         soundName = soundName,
-                        recurrence = recurrence,
+                        recurrenceType = recurrence,
                         isEnabled = true
                     )
                     onSave(newSession)
@@ -1004,6 +1022,7 @@ fun CreateOrEditSessionDialog(
     // Quick New Subject Dialog
     if (showNewSubjectDialog) {
         var newSubName by remember { mutableStateOf("") }
+        var newSubDesc by remember { mutableStateOf("") }
         val colors = listOf("#38BDF8", "#34D399", "#A78BFA", "#F43F5E", "#FBBF24", "#FB7185")
         var selectedColor by remember { mutableStateOf(colors.first()) }
 
@@ -1012,21 +1031,34 @@ fun CreateOrEditSessionDialog(
             containerColor = Slate850,
             title = { Text("New Subject", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = newSubName,
                         onValueChange = { newSubName = it },
-                        placeholder = { Text("e.g. Mathematics, Machine Learning", color = Color(0xFF64748B)) },
+                        placeholder = { Text("Subject Name (e.g. Mathematics)", color = Color(0xFF64748B)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = CyanPrimary,
                             unfocusedBorderColor = Slate700,
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
-                        )
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newSubDesc,
+                        onValueChange = { newSubDesc = it },
+                        placeholder = { Text("Description (e.g. Calculus, Problem sets)", color = Color(0xFF64748B)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyanPrimary,
+                            unfocusedBorderColor = Slate700,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        maxLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Text("Select Color", fontSize = 12.sp, color = Color(0xFF94A3B8))
-                    Spacer(modifier = Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         colors.forEach { hex ->
                             val isSel = selectedColor == hex
@@ -1050,7 +1082,7 @@ fun CreateOrEditSessionDialog(
                 Button(
                     onClick = {
                         if (newSubName.isNotBlank()) {
-                            onCreateSubject(newSubName.trim(), selectedColor)
+                            onCreateSubject(newSubName.trim(), newSubDesc.trim(), selectedColor)
                             showNewSubjectDialog = false
                         }
                     },

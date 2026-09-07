@@ -384,9 +384,25 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // --- Subjects Management ---
-    fun addSubject(name: String, colorHex: String, iconName: String, weeklyHours: Float = 10f) {
+    fun addSubject(
+        name: String,
+        description: String = "",
+        colorHex: String = "#38BDF8",
+        iconName: String = "School",
+        weeklyHours: Float = 10f,
+        onCreated: ((SubjectEntity) -> Unit)? = null
+    ) {
         viewModelScope.launch {
-            repository.insertSubject(name, colorHex, iconName, weeklyHours)
+            val id = repository.insertSubject(name, description, colorHex, iconName, weeklyHours)
+            val created = SubjectEntity(
+                id = id,
+                name = name,
+                description = description,
+                colorHex = colorHex,
+                iconName = iconName,
+                targetWeeklyHours = weeklyHours
+            )
+            onCreated?.invoke(created)
         }
     }
 
