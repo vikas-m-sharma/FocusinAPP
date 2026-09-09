@@ -56,8 +56,8 @@ class FocusinAccessibilityService : AccessibilityService() {
             }
 
             val sessionState = FocusSessionService.sessionState.value
-            // Only block when a focus session is actively running and not paused or on break
-            if (sessionState.isActive && !sessionState.isPaused && !sessionState.isBreak) {
+            // Only block when a focus session is actively running, protection is enabled, and not paused or on break
+            if (sessionState.isActive && !sessionState.isPaused && !sessionState.isBreak && sessionState.focusProtectionEnabled) {
                 val isDistracting = blockedPackageKeywords.any { keyword ->
                     pkgName.lowercase().contains(keyword)
                 }

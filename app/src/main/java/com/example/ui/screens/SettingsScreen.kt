@@ -69,6 +69,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.auth.AuthState
+import com.example.ui.components.GoogleSignInDialog
+import coil.compose.AsyncImage
 import com.example.ui.theme.AmethystAccent
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -90,6 +92,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val userSettings by viewModel.userSettings.collectAsState()
     val authState by viewModel.authState.collectAsState()
+    val authUser = (authState as? AuthState.Authenticated)?.user
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var showGoogleSignInModal by remember { mutableStateOf(false) }
@@ -200,25 +203,75 @@ fun SettingsScreen(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(CyanPrimary.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(28.dp))
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                if (authUser?.photoUrl?.isNotBlank() == true) {
+                                    AsyncImage(
+                                        model = authUser.photoUrl,
+                                        contentDescription = "Profile Photo",
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .border(1.5.dp, CyanPrimary, CircleShape)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(CyanPrimary.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.AccountCircle,
+                                            contentDescription = null,
+                                            tint = CyanPrimary,
+                                            modifier = Modifier.size(30.dp)
+                                        )
+                                    }
+                                }
+
+                                if (authUser != null && authUser.isGoogleUser) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(15.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                            .border(0.5.dp, Slate900, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "G",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFF4285F4)
+                                        )
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = authUser?.displayName ?: currentSettings.userName,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    if (authUser?.isGoogleUser == true) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Verified",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmeraldSuccess,
+                                            modifier = Modifier
+                                                .background(EmeraldSuccess.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                                 Text(
-                                    text = currentSettings.userName,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = currentSettings.userEmail ?: "Offline local database (No cloud sync)",
+                                    text = authUser?.email ?: currentSettings.userEmail ?: "Offline local database (No cloud sync)",
                                     fontSize = 12.sp,
                                     color = Color(0xFF94A3B8)
                                 )
@@ -226,27 +279,42 @@ fun SettingsScreen(
                         }
 
                         Text(
-                            text = "Focusin operates local-first. All your schedules, focus telemetry, and voice notes are stored safely in on-device Room SQLite.",
+                            text = if (authUser?.isGoogleUser == true) {
+                                "Account synced with Firebase Auth. Study timetable, streak data, and mock test scores are backed up to your Google account."
+                            } else {
+                                "Focusin operates local-first. Sign in with Google to sync your study timetables, test history, and AI streak diagnostics across all devices."
+                            },
                             fontSize = 11.sp,
                             color = Color(0xFF64748B)
                         )
 
-                        if (!currentSettings.isGoogleSignedIn) {
+                        if (authUser == null || !authUser.isGoogleUser) {
                             Button(
                                 onClick = { showGoogleSignInModal = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Slate800),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("settings_sign_in_google_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Sign in with Google", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text("G", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF4285F4))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Sign in with Google", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
                             }
                         } else {
                             OutlinedButton(
-                                onClick = { viewModel.signOutGoogle() },
-                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { viewModel.signOutGoogle(context) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("settings_sign_out_button"),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Sign Out", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                                Text("Sign Out of Google", color = Color(0xFF94A3B8), fontSize = 13.sp)
                             }
                         }
                     }
@@ -581,60 +649,11 @@ fun SettingsScreen(
         }
     }
 
-    // Google Sign-In Simulation Dialog
+    // Google Sign-In Dialog (Credential Manager & Firebase Auth)
     if (showGoogleSignInModal) {
-        var inputName by remember { mutableStateOf("Vikas") }
-        var inputEmail by remember { mutableStateOf("vs5083221@gmail.com") }
-
-        AlertDialog(
-            onDismissRequest = { showGoogleSignInModal = false },
-            title = { Text("Sign In with Google", color = Color.White) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Sign in to connect your Google account. In free-first client mode, data continues persisting locally without external passwords.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
-                    )
-                    OutlinedTextField(
-                        value = inputName,
-                        onValueChange = { inputName = it },
-                        label = { Text("Full Name") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanPrimary,
-                            unfocusedBorderColor = Slate700,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = inputEmail,
-                        onValueChange = { inputEmail = it },
-                        label = { Text("Email Address") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanPrimary,
-                            unfocusedBorderColor = Slate700,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.signInWithGoogle(inputName, inputEmail)
-                        showGoogleSignInModal = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary)
-                ) { Text("Confirm Sign In", color = Slate950, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGoogleSignInModal = false }) { Text("Cancel", color = Color.White) }
-            },
-            containerColor = Slate900
+        GoogleSignInDialog(
+            viewModel = viewModel,
+            onDismissRequest = { showGoogleSignInModal = false }
         )
     }
 

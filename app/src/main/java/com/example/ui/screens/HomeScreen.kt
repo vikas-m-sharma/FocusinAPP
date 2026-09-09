@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,21 +26,34 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
+import coil.compose.AsyncImage
+import com.example.data.auth.AuthState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -83,6 +97,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.SubjectEntity
 import com.example.data.local.entity.TimetableSessionEntity
+import com.example.ui.components.RedisStatusCard
+import com.example.ui.components.GoogleSignInDialog
+import com.example.ui.components.PersonalizedDashboardCard
+import coil.compose.AsyncImage
+import androidx.compose.material.icons.filled.NotificationsActive
 import com.example.ui.theme.AmethystAccent
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
@@ -91,6 +110,7 @@ import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.Slate950
+import com.example.viewmodel.AiAssistantMessage
 import com.example.viewmodel.FocusinViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,27 +123,48 @@ fun HomeScreen(
     onNavigateToSchedule: () -> Unit,
     onNavigateToFocus: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onOpenCreateSession: () -> Unit
+    onOpenCreateSession: () -> Unit,
+    onNavigateToPrepare: () -> Unit = {},
+    onNavigateToQuestionBank: () -> Unit = {}
 ) {
     val currentTime by viewModel.currentTimeString.collectAsState()
-    val currentGreeting by viewModel.currentGreeting.collectAsState()
     val activeSession by viewModel.activeSessionState.collectAsState()
     val todayStats by viewModel.todayStats.collectAsState()
     val userSettings by viewModel.userSettings.collectAsState()
     val nextSession by viewModel.nextSession.collectAsState()
     val todaySessions by viewModel.todaySessions.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
+    val lastActiveChapter by viewModel.lastActiveChapter.collectAsState()
+    val authState by viewModel.authState.collectAsState()
 
     var showQuickFocusSheet by remember { mutableStateOf(false) }
     var preselectedSubject by remember { mutableStateOf<SubjectEntity?>(null) }
     var showAddSubjectDialog by remember { mutableStateOf(false) }
+    var showGoogleSignInDialog by remember { mutableStateOf(false) }
 
-    val userName = userSettings?.userName ?: "Scholar"
+    // Resolve real user display name and profile picture
+    val authUser = (authState as? AuthState.Authenticated)?.user
+    val resolvedName = when {
+        !authUser?.displayName.isNullOrBlank() && authUser?.displayName != "Scholar" -> authUser.displayName
+        !userSettings?.userName.isNullOrBlank() && userSettings?.userName != "Scholar" -> userSettings!!.userName
+        !userSettings?.userEmail.isNullOrBlank() -> userSettings!!.userEmail!!.substringBefore("@").replaceFirstChar { it.uppercase() }
+        !authUser?.email.isNullOrBlank() -> authUser!!.email!!.substringBefore("@").replaceFirstChar { it.uppercase() }
+        else -> "Scholar"
+    }
+    val displayFirstName = resolvedName.split(" ").firstOrNull()?.trim() ?: resolvedName
+    val profilePhotoUrl = authUser?.photoUrl
+
+    // Dynamic greeting based on current hour: Good Morning, Good Afternoon, or Good Evening
+    val greetingTitle = FocusinViewModel.getGreetingForCurrentHour()
+
     val dailyGoalMinutes = userSettings?.dailyGoalMinutes ?: 360
     val focusedMinutes: Int = (todayStats?.totalFocusedMinutes ?: 0) + (if (activeSession.isActive) (activeSession.elapsedSeconds / 60).toInt() else 0)
     val progressFraction = if (dailyGoalMinutes > 0) (focusedMinutes.toFloat() / dailyGoalMinutes).coerceIn(0f, 1f) else 0f
     val focusScore = todayStats?.focusScore ?: 88
     val streak = userSettings?.currentStreak?.coerceAtLeast(1) ?: 1
+    val totalQuestionsAttempted by viewModel.totalQuestionsAttempted.collectAsState()
+    val totalQuestionsCorrect by viewModel.totalQuestionsCorrect.collectAsState()
+    val bookmarkedQuestions by viewModel.bookmarkedQuestions.collectAsState()
 
     Scaffold(
         containerColor = Slate950,
@@ -137,29 +178,62 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(10.dp)
+                                .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (activeSession.isActive) EmeraldSuccess else CyanPrimary)
+                                .background(CyanPrimary)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "FOCUSIN",
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp,
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             color = Color.White
                         )
                     }
                 },
                 actions = {
+                    // Profile Avatar (Google Profile photo or clean circular fallback avatar)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .border(1.5.dp, CyanPrimary.copy(alpha = 0.5f), CircleShape)
+                            .background(Color(0xFF1E293B))
+                            .clickable { onNavigateToSettings() }
+                            .testTag("profile_avatar"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!profilePhotoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = profilePhotoUrl,
+                                contentDescription = "Profile Photo",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = displayFirstName.take(1).uppercase(),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyanPrimary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
                     IconButton(
                         onClick = onNavigateToSettings,
-                        modifier = Modifier.testTag("settings_button")
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("settings_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings and Profile",
-                            tint = Color(0xFF94A3B8)
+                            contentDescription = "Settings",
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -171,107 +245,690 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(top = 10.dp, bottom = 90.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // 1. CURRENT TIME & GREETING
+            // 1. GREETING & MOTIVATIONAL LINE
             item {
-                Column {
-                    Text(
-                        text = currentTime,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "$currentGreeting, $userName",
-                        fontSize = 17.sp,
-                        color = Color(0xFF94A3B8),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "$greetingTitle,",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color(0xFFCBD5E1)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$displayFirstName 👋",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "“Small steps, big results.”",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B),
+                            fontStyle = FontStyle.Italic
+                        )
+                    }
 
-            // 2. ACTIVE SESSION HERO STATE OR TODAY'S PROGRESS & NEXT SESSION
-            if (activeSession.isActive) {
-                item {
-                    ActiveFocusHeroCard(
-                        activeSession = activeSession,
-                        onOpenFocus = onNavigateToFocus
-                    )
-                }
-            }
-
-            // 3. TODAY'S FOCUS PROGRESS
-            item {
-                TodayFocusProgressCard(
-                    focusedMinutes = focusedMinutes,
-                    goalMinutes = dailyGoalMinutes,
-                    progress = progressFraction
-                )
-            }
-
-            // 4. CURRENT / NEXT SESSION (if not actively in session)
-            if (!activeSession.isActive) {
-                item {
-                    CurrentOrNextSessionCard(
-                        session = nextSession,
-                        onStartFocus = { s ->
-                            viewModel.startFocusSession(
-                                subjectId = s.subjectId,
-                                subjectName = s.subjectName,
-                                taskName = s.taskName,
-                                durationMinutes = s.durationMinutes,
-                                mode = "COUNTDOWN"
+                    // Google Account Status / Profile Avatar
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        if (authUser != null && authUser.isGoogleUser) {
+                            Box(
+                                modifier = Modifier
+                                    .clickable { onNavigateToSettings() }
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.BottomEnd
+                            ) {
+                                if (!authUser.photoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = authUser.photoUrl,
+                                        contentDescription = "Google Account",
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .border(1.5.dp, CyanPrimary, CircleShape)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(Slate800)
+                                            .border(1.5.dp, CyanPrimary, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = authUser.displayName.firstOrNull()?.uppercase() ?: "G",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = CyanPrimary
+                                        )
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                        .border(0.5.dp, Slate900, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("G", fontSize = 8.sp, fontWeight = FontWeight.Black, color = Color(0xFF4285F4))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Connected",
+                                fontSize = 10.sp,
+                                color = EmeraldSuccess,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            onNavigateToFocus()
-                        },
-                        onViewSchedule = onNavigateToSchedule,
-                        onCreateSession = onOpenCreateSession
-                    )
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color.White)
+                                    .clickable { showGoogleSignInDialog = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "G",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF4285F4)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Sign in",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate950
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Offline guest",
+                                fontSize = 10.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
                 }
             }
 
-            // 5. HOME COMPACT QUICK STATS
+            // 2. PERSONALIZED DASHBOARD CARD (Google & Firebase Session Hub)
             item {
-                HomeQuickStatsRow(
+                PersonalizedDashboardCard(
+                    authUser = authUser,
+                    streakDays = streak,
                     focusedMinutes = focusedMinutes,
-                    goalMinutes = dailyGoalMinutes,
-                    focusScore = focusScore,
-                    streakDays = streak
+                    dailyGoalMinutes = dailyGoalMinutes,
+                    totalQuestionsAttempted = totalQuestionsAttempted,
+                    totalQuestionsCorrect = totalQuestionsCorrect,
+                    bookmarkedCount = bookmarkedQuestions.size,
+                    onSignInClick = { showGoogleSignInDialog = true },
+                    onSyncClick = { viewModel.syncWithRedis() },
+                    onViewProfileClick = onNavigateToSettings
                 )
             }
 
-            // 6. QUICK ACTIONS
+            // 2. TODAY'S FOCUS COMPACT CARD
             item {
-                QuickActionsSection(
-                    onStartQuickFocus = {
+                val focusedHours = focusedMinutes / 60
+                val focusedMins = focusedMinutes % 60
+                val goalHours = (dailyGoalMinutes / 60).coerceAtLeast(1)
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("today_focus_card"),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, Slate800)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Today's Focus",
+                                fontSize = 13.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = "${focusedHours}h ${focusedMins}m",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = " / ${goalHours}h",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF64748B),
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
+
+                        // Progress Bar & Circular % Badge
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { progressFraction },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(8.dp)
+                                    .clip(CircleShape),
+                                color = CyanPrimary,
+                                trackColor = Color(0xFF1E293B)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .border(2.dp, CyanPrimary, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${(progressFraction * 100).toInt()}%",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        // Compact Stats: Streak and Focus Score
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🔥", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "$streak days",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Streak",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("📊", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "$focusScore",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Focus Score",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. PRIMARY ACTION: START QUICK FOCUS
+            item {
+                Button(
+                    onClick = {
                         preselectedSubject = null
                         showQuickFocusSheet = true
                     },
-                    onAddSession = onOpenCreateSession,
-                    onViewSchedule = onNavigateToSchedule
-                )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("start_quick_focus_button"),
+                    shape = RoundedCornerShape(25.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CyanPrimary,
+                        contentColor = Slate950
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Slate950,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "START QUICK FOCUS",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.5.sp,
+                        color = Slate950
+                    )
+                }
             }
 
-            // 6.5 MY SUBJECTS & FOCUS TOPICS (NAMES AND DESCRIPTIONS VISIBLE ON HOME)
+            // 4. SECONDARY ACTIONS: + Add Session & View Schedule
             item {
-                HomeSubjectsSection(
-                    subjects = subjects,
-                    onSelectSubjectToFocus = { subject ->
-                        preselectedSubject = subject
-                        showQuickFocusSheet = true
-                    },
-                    onAddNewSubject = {
-                        showAddSubjectDialog = true
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onOpenCreateSession,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("add_session_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Slate900,
+                            contentColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, Slate800)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = CyanPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "+ Add Session",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
                     }
-                )
+
+                    OutlinedButton(
+                        onClick = onNavigateToSchedule,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("view_schedule_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Slate900,
+                            contentColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, Slate800)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = Color(0xFFC084FC),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "View Schedule",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
+                }
             }
 
-            // 7. TODAY'S SCHEDULE TIMELINE
+            // 5. CURRENT / NEXT SESSION
+            item {
+                if (activeSession.isActive) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Slate800, RoundedCornerShape(16.dp))
+                            .clickable { onNavigateToFocus() },
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Current Session",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(EmeraldSuccess.copy(alpha = 0.15f))
+                                        .border(1.dp, EmeraldSuccess.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "NOW",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldSuccess
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(3.5.dp)
+                                            .height(44.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xFFFF7A45), Color(0xFFFFC53D))
+                                                )
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = activeSession.subjectName,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = activeSession.taskName,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Active Session",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = onNavigateToFocus,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CyanPrimary,
+                                        contentColor = Slate950
+                                    ),
+                                    shape = RoundedCornerShape(18.dp),
+                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Continue",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (nextSession != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Slate800, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Next Session",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(3.5.dp)
+                                            .height(44.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(CyanPrimary)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = nextSession!!.subjectName,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = nextSession!!.taskName,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${nextSession!!.startTime} – ${nextSession!!.endTime}",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.startFocusSession(
+                                            subjectId = nextSession!!.subjectId,
+                                            subjectName = nextSession!!.subjectName,
+                                            taskName = nextSession!!.taskName,
+                                            durationMinutes = nextSession!!.durationMinutes,
+                                            mode = "COUNTDOWN"
+                                        )
+                                        onNavigateToFocus()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CyanPrimary,
+                                        contentColor = Slate950
+                                    ),
+                                    shape = RoundedCornerShape(18.dp),
+                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Start",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Slate800, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp)
+                        ) {
+                            Text(
+                                text = "Your day is still open.",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Create your first focus session to structure your study day.",
+                                fontSize = 13.sp,
+                                color = Color(0xFF64748B)
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            OutlinedButton(
+                                onClick = onOpenCreateSession,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyanPrimary),
+                                border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text(
+                                    text = "Create Session",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. CONTINUE LEARNING
+            item {
+                val chapterTitle = lastActiveChapter?.name ?: "Current Electricity"
+                val chapterSubject = lastActiveChapter?.subjectId?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Physics"
+                val progressVal = lastActiveChapter?.completionPercentage ?: 62
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Slate800, RoundedCornerShape(16.dp))
+                        .clickable { onNavigateToPrepare() },
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.School,
+                                    contentDescription = null,
+                                    tint = EmeraldSuccess,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Continue Learning",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "NEET",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "$chapterSubject • $chapterTitle",
+                            fontSize = 13.sp,
+                            color = Color(0xFFCBD5E1)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { progressVal / 100f },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(CircleShape),
+                                color = CyanPrimary,
+                                trackColor = Color(0xFF1E293B)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "$progressVal% complete",
+                                fontSize = 11.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 7. TODAY'S SCHEDULE (Lightweight List)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -279,40 +936,128 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "TODAY'S SCHEDULE",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp,
-                        color = Color(0xFF64748B)
+                        text = "Today's Schedule",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                     Text(
-                        text = "${todaySessions.size} Sessions",
-                        fontSize = 12.sp,
+                        text = "See All",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = CyanPrimary,
-                        fontWeight = FontWeight.SemiBold
+                        modifier = Modifier
+                            .clickable { onNavigateToSchedule() }
+                            .padding(vertical = 4.dp)
                     )
                 }
             }
 
-            if (todaySessions.isEmpty()) {
+            if (todaySessions.isNotEmpty()) {
                 item {
-                    EmptyScheduleCard(onAddSession = onOpenCreateSession)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        todaySessions.take(3).forEach { session ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Slate900.copy(alpha = 0.5f))
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF38BDF8))
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "${session.startTime} – ${session.endTime}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8),
+                                    modifier = Modifier.width(90.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = session.subjectName,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = session.taskName,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF64748B),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                if ((todayStats?.totalFocusedMinutes ?: 0) >= session.durationMinutes) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Completed",
+                                        tint = EmeraldSuccess,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .border(1.5.dp, Color(0xFF475569), CircleShape)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
-                items(todaySessions, key = { it.id }) { session ->
-                    TodaySessionTimelineItem(
-                        session = session,
-                        onStart = {
-                            viewModel.startFocusSession(
-                                subjectId = session.subjectId,
-                                subjectName = session.subjectName,
-                                taskName = session.taskName,
-                                durationMinutes = session.durationMinutes,
-                                mode = "COUNTDOWN"
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Slate800, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Your day is still open.",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
                             )
-                            onNavigateToFocus()
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Create your first focus session to structure your study day.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = onOpenCreateSession,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyanPrimary),
+                                border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text(
+                                    text = "Create Session",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                    )
+                    }
                 }
             }
         }
@@ -354,6 +1099,14 @@ fun HomeScreen(
                 viewModel.addSubject(name, description, colorHex, "School", hours)
                 showAddSubjectDialog = false
             }
+        )
+    }
+
+    // Google Sign-In Dialog (Credential Manager & Firebase Auth)
+    if (showGoogleSignInDialog) {
+        GoogleSignInDialog(
+            viewModel = viewModel,
+            onDismissRequest = { showGoogleSignInDialog = false }
         )
     }
 }
@@ -584,7 +1337,8 @@ fun CurrentOrNextSessionCard(
     session: TimetableSessionEntity?,
     onStartFocus: (TimetableSessionEntity) -> Unit,
     onViewSchedule: () -> Unit,
-    onCreateSession: () -> Unit
+    onCreateSession: () -> Unit,
+    onTestRinging: ((TimetableSessionEntity) -> Unit)? = null
 ) {
     if (session == null) {
         Card(
@@ -885,7 +1639,8 @@ fun QuickActionsSection(
 @Composable
 fun TodaySessionTimelineItem(
     session: TimetableSessionEntity,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onTestRinging: () -> Unit
 ) {
     val nowTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
     val isPast = session.endTime < nowTime
@@ -968,15 +1723,31 @@ fun TodaySessionTimelineItem(
                 }
             }
 
-            IconButton(
-                onClick = onStart,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Start session",
-                    tint = CyanPrimary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onTestRinging,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = "Test Ringing Alarm",
+                        tint = Color(0xFFF87171),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                IconButton(
+                    onClick = onStart,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Start session",
+                        tint = CyanPrimary
+                    )
+                }
             }
         }
     }
@@ -1664,6 +2435,359 @@ fun QuickFocusBottomSheet(
                     fontSize = 15.sp,
                     letterSpacing = 0.5.sp
                 )
+            }
+        }
+    }
+}
+
+// --- AI STUDY ASSISTANT CARD ---
+@Composable
+fun AiStudyAssistantCard(
+    userName: String,
+    isGoogleSignedIn: Boolean,
+    isFocusActive: Boolean,
+    aiMessages: List<AiAssistantMessage>,
+    isLoading: Boolean,
+    onScheduleAndLock: () -> Unit,
+    onStudyGuidance: () -> Unit,
+    onAppTour: () -> Unit,
+    onStopFocus: () -> Unit,
+    onSendPrompt: (String) -> Unit,
+    onOpenGoogleSignIn: () -> Unit
+) {
+    var userPrompt by remember { mutableStateOf("") }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ai_study_assistant_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Slate900),
+        border = BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(CyanPrimary, AmethystAccent, CyanPrimary)))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            // Header Row: AI Badge & Google Profile status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Slate800)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = CyanBright,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "AI STUDY ASSISTANT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyanBright,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(EmeraldSuccess)
+                    )
+                }
+
+                if (isGoogleSignedIn) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1E293B))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = EmeraldSuccess,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Google Linked",
+                            fontSize = 11.sp,
+                            color = Color(0xFF94A3B8),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                } else {
+                    TextButton(
+                        onClick = onOpenGoogleSignIn,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            tint = CyanPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Login with Google",
+                            fontSize = 11.sp,
+                            color = CyanPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Proactive Conversational Prompt Addressing User Polite as Sir/Ma'am
+            Text(
+                text = "Hello Sir/Ma'am $userName! 👋",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Can I schedule your study timetable (e.g. 6:00 AM – 8:00 AM) and lock distracting social media apps to protect your focus?",
+                fontSize = 13.5.sp,
+                color = Color(0xFFCBD5E1),
+                lineHeight = 19.sp
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Proactive Quick Actions
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onScheduleAndLock,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("ai_schedule_and_lock_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = Slate950,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Schedule Timetable & Lock Social Media",
+                        color = Slate950,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onStudyGuidance,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("ai_study_guidance_btn"),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Slate700),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lightbulb,
+                            contentDescription = null,
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("How to Prepare", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onAppTour,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("ai_app_tour_btn"),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Slate700),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Explore,
+                            contentDescription = null,
+                            tint = AmethystAccent,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("App Structure", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                if (isFocusActive) {
+                    Button(
+                        onClick = onStopFocus,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .testTag("ai_stop_focus_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Stop Focus & Unlock Apps",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        )
+                    }
+                }
+            }
+
+            // Latest Response or Expandable Chat Feed
+            val latestAiMessage = aiMessages.lastOrNull { !it.isUser }
+            if (latestAiMessage != null && latestAiMessage.text.isNotBlank()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0F172A))
+                        .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = CyanPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Focusin AI Response",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyanPrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = latestAiMessage.text,
+                        fontSize = 13.sp,
+                        color = Color.White,
+                        lineHeight = 18.sp
+                    )
+
+                    if (latestAiMessage.tips.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        latestAiMessage.tips.forEach { tip ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text("• ", color = CyanBright, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(
+                                    text = tip,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFCBD5E1),
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Natural Language Interactive Text Input
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = userPrompt,
+                    onValueChange = { userPrompt = it },
+                    placeholder = {
+                        Text(
+                            "Ask AI: 'Schedule Math 6am-8am', 'How to study'...",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("ai_assistant_input"),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyanPrimary,
+                        unfocusedBorderColor = Slate700,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    onClick = {
+                        if (userPrompt.isNotBlank() && !isLoading) {
+                            val p = userPrompt
+                            userPrompt = ""
+                            onSendPrompt(p)
+                        }
+                    },
+                    enabled = userPrompt.isNotBlank() && !isLoading,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (userPrompt.isNotBlank() && !isLoading) CyanPrimary else Slate800)
+                        .testTag("ai_assistant_send_btn")
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = CyanPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "Send",
+                            tint = if (userPrompt.isNotBlank()) Slate950 else Color(0xFF64748B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }

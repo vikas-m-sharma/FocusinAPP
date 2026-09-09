@@ -24,15 +24,20 @@ import com.example.data.local.entity.TimetableSessionEntity
 import com.example.data.local.entity.UserSettingsEntity
 import com.example.data.local.entity.VoiceRecordingEntity
 import com.example.data.repository.FocusinRepository
+import com.example.receiver.AlarmRingingManager
+import com.example.receiver.RingingSessionInfo
 import com.example.receiver.SessionAlarmReceiver
+import com.example.data.backend.RedisDatabaseManager
 import com.example.service.ActiveSessionState
 import com.example.service.FocusSessionService
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -42,6 +47,15 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+data class AiAssistantMessage(
+    val id: Long = System.currentTimeMillis(),
+    val isUser: Boolean,
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val actionType: String? = null,
+    val tips: List<String> = emptyList()
+)
+
 class FocusinViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
@@ -49,8 +63,15 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     val voiceRecorderManager = VoiceRecorderManager(application)
     private val geminiService = GeminiFocusinService()
     val authManager = AuthManager(application)
-
     val authState: StateFlow<AuthState> = authManager.authState
+
+    // Redis Backend & Database Cache Manager
+    val redisDatabaseManager = RedisDatabaseManager.getInstance(application)
+    val redisState = redisDatabaseManager.connectionState
+
+    // Active Alarm Ringing State
+    val isAlarmRinging: StateFlow<Boolean> = AlarmRingingManager.isRinging
+    val currentRingingSession: StateFlow<RingingSessionInfo?> = AlarmRingingManager.currentRingingSession
 
     // Live clock and greeting state
     private val _currentTimeString = MutableStateFlow(getCurrentFormattedTime())
@@ -70,6 +91,15 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val recentWeekStats: StateFlow<List<DailyStatsEntity>> = repository.recentWeekStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentMonthStats: StateFlow<List<DailyStatsEntity>> = repository.recentMonthStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentYearStats: StateFlow<List<DailyStatsEntity>> = repository.recentYearStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allDailyStats: StateFlow<List<DailyStatsEntity>> = repository.allDailyStats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val voiceRecordings: StateFlow<List<VoiceRecordingEntity>> = repository.allVoiceRecordings
@@ -106,6 +136,267 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    // Learning & Prepare Flows
+    val neetChapters: StateFlow<List<com.example.data.local.entity.ChapterEntity>> = repository.neetChapters
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val lastActiveChapter: StateFlow<com.example.data.local.entity.ChapterEntity?> = repository.lastActiveChapter
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val allQuestionAttempts: StateFlow<List<com.example.data.local.entity.QuestionAttemptEntity>> = repository.allQuestionAttempts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allQuizAttempts: StateFlow<List<com.example.data.local.entity.QuizAttemptEntity>> = repository.allQuizAttempts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalQuestionsAttempted: StateFlow<Int> = repository.totalQuestionsAttempted
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val totalQuestionsCorrect: StateFlow<Int> = repository.totalQuestionsCorrect
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val featuredResources: StateFlow<List<com.example.data.local.entity.LearningResourceEntity>> = repository.featuredResources
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val bookmarkedQuestions: StateFlow<List<com.example.data.local.entity.QuestionEntity>> = repository.bookmarkedQuestions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val mockTestAttempts: StateFlow<List<com.example.data.local.entity.QuizAttemptEntity>> = repository.mockTestAttempts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalMockTestsCount: StateFlow<Int> = repository.totalMockTestsCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // Derived Weak Topics based on actual question attempts (<65% accuracy)
+    val calculatedWeakTopics: StateFlow<List<WeakTopicInfo>> = allQuestionAttempts.map { attempts ->
+        attempts.groupBy { it.topicName }
+            .mapNotNull { (topic, topicAttempts) ->
+                if (topicAttempts.isNotEmpty()) {
+                    val correct = topicAttempts.count { it.isCorrect }
+                    val acc = ((correct.toFloat() / topicAttempts.size) * 100).toInt()
+                    if (acc < 65) {
+                        val sample = topicAttempts.first()
+                        WeakTopicInfo(
+                            topicName = topic,
+                            subjectId = sample.subjectId,
+                            chapterId = sample.chapterId,
+                            totalAttempts = topicAttempts.size,
+                            correctAttempts = correct,
+                            accuracy = acc
+                        )
+                    } else null
+                } else null
+            }
+            .sortedBy { it.accuracy }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun getQuizAttemptById(id: Long): Flow<com.example.data.local.entity.QuizAttemptEntity?> {
+        return repository.getQuizAttemptById(id)
+    }
+
+    val allQuestions: StateFlow<List<com.example.data.local.entity.QuestionEntity>> = repository.learningDao.getAllQuestions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun getAttemptsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionAttemptEntity>> {
+        return repository.learningDao.getAttemptsForChapter(chapterId)
+    }
+
+    fun toggleQuestionBookmark(questionId: String, current: Boolean) {
+        viewModelScope.launch {
+            repository.setQuestionBookmarked(questionId, !current)
+        }
+    }
+
+    fun recordQuestionAttempt(
+        questionId: String,
+        chapterId: String,
+        subjectId: String,
+        topicName: String,
+        selectedOption: String,
+        isCorrect: Boolean,
+        timeTakenSeconds: Int
+    ) {
+        viewModelScope.launch {
+            repository.recordQuestionAttempt(
+                com.example.data.local.entity.QuestionAttemptEntity(
+                    questionId = questionId,
+                    chapterId = chapterId,
+                    subjectId = subjectId,
+                    topicName = topicName,
+                    selectedOption = selectedOption,
+                    isCorrect = isCorrect,
+                    timeTakenSeconds = timeTakenSeconds
+                )
+            )
+        }
+    }
+
+    fun recordQuizAttempt(
+        examId: String,
+        subjectId: String,
+        chapterId: String,
+        chapterName: String,
+        totalQuestions: Int,
+        correctAnswers: Int,
+        timeTakenSeconds: Int,
+        mode: String,
+        strongTopics: List<String>,
+        weakTopics: List<String>
+    ) {
+        viewModelScope.launch {
+            val strongJson = strongTopics.joinToString(prefix = "[\"", separator = "\",\"", postfix = "\"]")
+            val weakJson = weakTopics.joinToString(prefix = "[\"", separator = "\",\"", postfix = "\"]")
+            repository.recordQuizAttempt(
+                com.example.data.local.entity.QuizAttemptEntity(
+                    examId = examId,
+                    subjectId = subjectId,
+                    chapterId = chapterId,
+                    chapterName = chapterName,
+                    totalQuestions = totalQuestions,
+                    correctAnswers = correctAnswers,
+                    timeTakenSeconds = timeTakenSeconds,
+                    mode = mode,
+                    strongTopicsJson = strongJson,
+                    weakTopicsJson = weakJson
+                )
+            )
+        }
+    }
+
+    fun getQuestionsForSubject(subjectId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.QuestionEntity>> {
+        return repository.getQuestionsForSubject(subjectId)
+    }
+
+    fun getQuestionsForTopic(chapterId: String, topicName: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.QuestionEntity>> {
+        return repository.getQuestionsForTopic(chapterId, topicName)
+    }
+
+    fun getAvailablePYQYears(): kotlinx.coroutines.flow.Flow<List<String>> {
+        return repository.getAvailablePYQYears()
+    }
+
+    fun getTopicsForChapter(chapterId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.TopicEntity>> {
+        return repository.learningDao.getTopicsForChapter(chapterId)
+    }
+
+    fun getChapterFlow(chapterId: String): kotlinx.coroutines.flow.Flow<com.example.data.local.entity.ChapterEntity?> {
+        return repository.learningDao.getChapterById(chapterId)
+    }
+
+    fun getChaptersBySubject(examId: String, subjectId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.ChapterEntity>> {
+        return repository.getChaptersBySubject(examId, subjectId)
+    }
+
+    fun getResourcesForChapter(chapterId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.LearningResourceEntity>> {
+        return repository.getResourcesForChapter(chapterId)
+    }
+
+    fun getResourcesForTopic(topicId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.LearningResourceEntity>> {
+        return repository.getResourcesForTopic(topicId)
+    }
+
+    fun getQuestionsForChapter(chapterId: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.QuestionEntity>> {
+        return repository.learningDao.getQuestionsForChapter(chapterId)
+    }
+
+    fun getQuestionsForPYQ(year: String): kotlinx.coroutines.flow.Flow<List<com.example.data.local.entity.QuestionEntity>> {
+        return repository.learningDao.getQuestionsForPYQ(year)
+    }
+
+    fun updateTopicStatus(topicId: String, chapterId: String, status: String) {
+        viewModelScope.launch {
+            repository.updateTopicStatusAndSyncChapter(topicId, chapterId, status)
+        }
+    }
+
+    fun updateResourceCompletion(resourceId: String, completed: Boolean) {
+        viewModelScope.launch {
+            repository.updateResourceCompletion(resourceId, completed)
+        }
+    }
+
+    fun updateResourceBookmark(resourceId: String, bookmarked: Boolean) {
+        viewModelScope.launch {
+            repository.updateResourceBookmark(resourceId, bookmarked)
+        }
+    }
+
+    fun scheduleLearningSession(
+        subjectName: String,
+        topicName: String,
+        dayOfWeek: Int = getCurrentDayOfWeek(),
+        startTime: String = "18:00",
+        endTime: String = "19:00",
+        durationMinutes: Int = 60,
+        focusModeEnabled: Boolean = true,
+        alarmEnabled: Boolean = true,
+        protectionLevel: String = "STANDARD"
+    ) {
+        viewModelScope.launch {
+            val newSession = TimetableSessionEntity(
+                dayOfWeek = dayOfWeek,
+                subjectId = 0,
+                subjectName = subjectName,
+                taskName = "Study: $topicName",
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = durationMinutes,
+                focusModeEnabled = focusModeEnabled,
+                alarmEnabled = alarmEnabled,
+                note = protectionLevel
+            )
+            repository.insertTimetableSession(newSession)
+        }
+    }
+
+    fun recordQuizAttempt(
+        subjectId: String,
+        chapterId: String,
+        chapterName: String,
+        totalQuestions: Int,
+        correctAnswers: Int,
+        timeTakenSeconds: Int,
+        strongTopics: List<String>,
+        weakTopics: List<String>
+    ) {
+        viewModelScope.launch {
+            val strongJson = "[${strongTopics.joinToString(",") { "\"$it\"" }}]"
+            val weakJson = "[${weakTopics.joinToString(",") { "\"$it\"" }}]"
+            repository.learningDao.recordQuizAttempt(
+                com.example.data.local.entity.QuizAttemptEntity(
+                    subjectId = subjectId,
+                    chapterId = chapterId,
+                    chapterName = chapterName,
+                    totalQuestions = totalQuestions,
+                    correctAnswers = correctAnswers,
+                    timeTakenSeconds = timeTakenSeconds,
+                    strongTopicsJson = strongJson,
+                    weakTopicsJson = weakJson
+                )
+            )
+        }
+    }
+
+    fun addRevisionToSchedule(subjectName: String, topicName: String) {
+        viewModelScope.launch {
+            val currentDay = getCurrentDayOfWeek()
+            val startTime = "18:00"
+            val endTime = "19:00"
+            val newSession = TimetableSessionEntity(
+                dayOfWeek = currentDay,
+                subjectId = 0,
+                subjectName = subjectName,
+                taskName = "Revise: $topicName",
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = 60,
+                focusModeEnabled = true,
+                alarmEnabled = true
+            )
+            repository.insertTimetableSession(newSession)
+        }
+    }
+
     // AI States
     private val _isAiGenerating = MutableStateFlow(false)
     val isAiGenerating: StateFlow<Boolean> = _isAiGenerating.asStateFlow()
@@ -118,6 +409,13 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
     private val _aiCoachAnalysis = MutableStateFlow<CoachAnalysisResult?>(null)
     val aiCoachAnalysis: StateFlow<CoachAnalysisResult?> = _aiCoachAnalysis.asStateFlow()
+
+    // AI Study Assistant Conversation
+    private val _aiAssistantMessages = MutableStateFlow<List<AiAssistantMessage>>(emptyList())
+    val aiAssistantMessages: StateFlow<List<AiAssistantMessage>> = _aiAssistantMessages.asStateFlow()
+
+    private val _isAiAssistantLoading = MutableStateFlow(false)
+    val isAiAssistantLoading: StateFlow<Boolean> = _isAiAssistantLoading.asStateFlow()
 
     // Audio recording & playback state
     private val _isAudioRecording = MutableStateFlow(false)
@@ -139,12 +437,52 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
             authManager.continueAsLocalUser("Scholar")
         }
 
+        // Sync auth state with database user settings
+        viewModelScope.launch {
+            authManager.authState.collect { state ->
+                if (state is AuthState.Authenticated) {
+                    val user = state.user
+                    val current = repository.getUserSettingsSync()
+                    repository.updateUserSettings(
+                        current.copy(
+                            userName = user.displayName,
+                            userEmail = user.email,
+                            isGoogleSignedIn = user.isGoogleUser,
+                            cloudSyncEnabled = user.isGoogleUser,
+                            lastSyncTimestamp = System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        }
+
         // Live clock ticker
         viewModelScope.launch {
             while (isActive) {
                 _currentTimeString.value = getCurrentFormattedTime()
                 _currentGreeting.value = getGreetingForCurrentHour()
                 delay(15000L) // updates every 15s
+            }
+        }
+
+        // Initialize AI Study Assistant Greeting
+        viewModelScope.launch {
+            com.example.data.local.LearningInitialData.populateInitialDataIfEmpty(repository.learningDao)
+            userSettings.collect { settings ->
+                if (_aiAssistantMessages.value.isEmpty()) {
+                    val name = settings?.userName ?: "Scholar"
+                    val initial = AiAssistantMessage(
+                        isUser = false,
+                        text = "Hello Sir/Ma'am $name! 👋 Focusin AI here. Can I schedule your study timetable (e.g. 6:00 AM - 8:00 AM) and lock distracting social media apps to protect your focus today?",
+                        actionType = "GREETING",
+                        tips = listOf(
+                            "⚡ Schedule & Lock Social Apps",
+                            "📖 How to Prepare for Study",
+                            "🗺️ App Structure Guidance"
+                        )
+                    )
+                    _aiAssistantMessages.value = listOf(initial)
+                }
             }
         }
     }
@@ -159,7 +497,8 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         subjectName: String,
         taskName: String,
         durationMinutes: Int,
-        mode: String = "COUNTDOWN"
+        mode: String = "COUNTDOWN",
+        protection: Boolean = true
     ) {
         val context = getApplication<Application>()
         val intent = Intent(context, FocusSessionService::class.java).apply {
@@ -169,6 +508,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
             putExtra(FocusSessionService.EXTRA_TASK_NAME, taskName)
             putExtra(FocusSessionService.EXTRA_DURATION_MINUTES, durationMinutes)
             putExtra(FocusSessionService.EXTRA_MODE, mode)
+            putExtra("EXTRA_PROTECTION", protection)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
@@ -324,8 +664,12 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
             val intent = Intent(context, SessionAlarmReceiver::class.java).apply {
                 putExtra("EXTRA_SESSION_ID", session.id)
+                putExtra("EXTRA_SUBJECT_ID", session.subjectId)
                 putExtra("EXTRA_SUBJECT_NAME", session.subjectName)
                 putExtra("EXTRA_TASK_NAME", session.taskName)
+                putExtra("EXTRA_START_TIME", session.startTime)
+                putExtra("EXTRA_END_TIME", session.endTime)
+                putExtra("EXTRA_DURATION_MINUTES", session.durationMinutes)
                 putExtra("EXTRA_VOICE_NOTE_ID", session.voiceNoteId ?: -1L)
                 putExtra("EXTRA_SOUND_URI", session.soundUri)
             }
@@ -339,30 +683,35 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
             val timeParts = session.startTime.split(":")
             if (timeParts.size == 2) {
-                val cal = Calendar.getInstance().apply {
-                    val currentDay = get(Calendar.DAY_OF_WEEK)
-                    val targetDay = when (session.dayOfWeek) {
-                        1 -> Calendar.MONDAY
-                        2 -> Calendar.TUESDAY
-                        3 -> Calendar.WEDNESDAY
-                        4 -> Calendar.THURSDAY
-                        5 -> Calendar.FRIDAY
-                        6 -> Calendar.SATURDAY
-                        else -> Calendar.SUNDAY
-                    }
-                    set(Calendar.DAY_OF_WEEK, targetDay)
-                    set(Calendar.HOUR_OF_DAY, timeParts[0].toIntOrNull() ?: 9)
-                    set(Calendar.MINUTE, timeParts[1].toIntOrNull() ?: 0)
-                    set(Calendar.SECOND, 0)
-                    if (timeInMillis < System.currentTimeMillis()) {
-                        add(Calendar.WEEK_OF_YEAR, 1)
-                    }
+                val hour = timeParts[0].toIntOrNull() ?: 6
+                val minute = timeParts[1].toIntOrNull() ?: 0
+
+                val currentDayOfWeek = getCurrentDayOfWeek() // 1=Mon .. 7=Sun
+                var daysDiff = session.dayOfWeek - currentDayOfWeek
+                if (daysDiff < 0) {
+                    daysDiff += 7
                 }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+                val targetCal = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, daysDiff)
+                    set(Calendar.HOUR_OF_DAY, hour)
+                    set(Calendar.MINUTE, minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                // If scheduled for today, but the start time has already passed (or is within 10 seconds), schedule for next week
+                if (daysDiff == 0 && targetCal.timeInMillis <= System.currentTimeMillis() + 10_000L) {
+                    targetCal.add(Calendar.DAY_OF_YEAR, 7)
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val clockInfo = AlarmManager.AlarmClockInfo(targetCal.timeInMillis, pendingIntent)
+                    alarmManager.setAlarmClock(clockInfo, pendingIntent)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetCal.timeInMillis, pendingIntent)
                 } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, targetCal.timeInMillis, pendingIntent)
                 }
             }
         } catch (_: Exception) {}
@@ -517,17 +866,214 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun analyzeWeekWithAi() {
+        requestWeeklyCoachAnalysis()
+    }
+
+    fun requestWeeklyCoachAnalysis() {
         viewModelScope.launch {
             _isAiGenerating.value = true
             val stats = recentWeekStats.value
-            val analysis = geminiService.analyzeWeek(stats)
-            _aiCoachAnalysis.value = analysis
+            val attempts = allQuestionAttempts.value
+            val weak = calculatedWeakTopics.value
+
+            val subjectAccuracies = attempts.groupBy { it.subjectId.uppercase() }
+                .mapValues { (_, atts) ->
+                    val correct = atts.count { it.isCorrect }
+                    if (atts.isNotEmpty()) ((correct.toFloat() / atts.size) * 100).toInt() else 70
+                }
+
+            val strongestSub = subjectAccuracies.maxByOrNull { it.value }
+            val weakestSub = subjectAccuracies.minByOrNull { it.value }
+            val topWeakTopic = weak.firstOrNull()?.topicName ?: "Kirchhoff's Laws"
+
+            val strongText = if (strongestSub != null) {
+                "You're consistent in ${strongestSub.key.lowercase().replaceFirstChar { it.uppercase() }} (${strongestSub.value}% accuracy)"
+            } else {
+                "You're maintaining solid focus consistency across your scheduled study windows"
+            }
+
+            val weakText = if (weakestSub != null && weakestSub.key != strongestSub?.key) {
+                "your accuracy in ${weakestSub.key.lowercase().replaceFirstChar { it.uppercase() }} dropped to ${weakestSub.value}% this week"
+            } else {
+                "targeted problem-solving can be improved in complex numerical topics"
+            }
+
+            val recommendation = "Revise $topWeakTopic and attempt 20 practice questions before your next test."
+            val synthesizedSummary = "$strongText, but $weakText. $recommendation"
+
+            val fallbackCoachResult = com.example.data.ai.CoachAnalysisResult(
+                overallSummary = synthesizedSummary,
+                bestDayObservation = if (strongestSub != null) "Strong grasp in ${strongestSub.key.lowercase().replaceFirstChar { it.uppercase() }} (${strongestSub.value}%)" else "High adherence on your peak focus day",
+                weakestDayObservation = if (weak.isNotEmpty()) "Accuracy drops in ${weak.take(2).joinToString(", ") { it.topicName }}" else "Afternoon fatigue observed in late sessions",
+                completionInsight = "Consistent morning sessions yield 20% higher retention and focus completion.",
+                distractionInsight = "Distractions remained low with Focus Shield enabled.",
+                recommendations = listOf(
+                    recommendation,
+                    "Schedule a 45-minute revision block for $topWeakTopic in your timetable.",
+                    "Review incorrect attempts in the Question Bank before taking the full mock."
+                )
+            )
+
+            try {
+                val analysis = geminiService.analyzeWeek(stats)
+                _aiCoachAnalysis.value = if (analysis.overallSummary.isNotBlank() && !analysis.overallSummary.contains("Great consistency overall")) {
+                    analysis
+                } else {
+                    fallbackCoachResult
+                }
+            } catch (e: Exception) {
+                _aiCoachAnalysis.value = fallbackCoachResult
+            }
+            if (_aiCoachAnalysis.value == null) {
+                _aiCoachAnalysis.value = fallbackCoachResult
+            }
             _isAiGenerating.value = false
         }
     }
 
-    fun requestWeeklyCoachAnalysis() {
-        analyzeWeekWithAi()
+    // --- AI Personal Study Assistant ---
+    fun sendAiAssistantPrompt(prompt: String) {
+        val trimmed = prompt.trim()
+        if (trimmed.isBlank()) return
+
+        val userMsg = AiAssistantMessage(
+            isUser = true,
+            text = trimmed
+        )
+        _aiAssistantMessages.value = _aiAssistantMessages.value + userMsg
+        _isAiAssistantLoading.value = true
+
+        viewModelScope.launch {
+            val name = userSettings.value?.userName ?: "Scholar"
+            val subs = subjects.value.map { it.name }
+            val isFocusActive = activeSessionState.value.isActive
+
+            val result = geminiService.interactWithAssistant(
+                userInput = trimmed,
+                userName = name,
+                existingSubjects = subs,
+                isFocusActive = isFocusActive
+            )
+
+            // Execute automated actions based on AI interpretation
+            when (result.actionType) {
+                "SCHEDULE_AND_LOCK" -> {
+                    val subName = result.subjectName ?: subs.firstOrNull() ?: "Mathematics"
+                    val existing = subjects.value.firstOrNull { it.name.equals(subName, ignoreCase = true) }
+                    val subId = existing?.id ?: repository.insertSubject(subName, "#38BDF8", "Study")
+
+                    val curDay = getCurrentDayOfWeek()
+                    val sessionEntity = TimetableSessionEntity(
+                        dayOfWeek = curDay,
+                        subjectId = subId,
+                        subjectName = subName,
+                        taskName = result.taskName ?: "Core Study Block",
+                        startTime = result.startTime,
+                        endTime = result.endTime,
+                        durationMinutes = result.durationMinutes,
+                        colorHex = existing?.colorHex ?: "#38BDF8",
+                        alarmEnabled = true,
+                        focusModeEnabled = true,
+                        isEnabled = true
+                    )
+                    val newId = repository.insertTimetableSession(sessionEntity)
+                    scheduleSessionAlarm(sessionEntity.copy(id = newId))
+
+                    // Ring alarm immediately so user gets active ringing understanding that timetable has started!
+                    val ringInfo = RingingSessionInfo(
+                        sessionId = newId,
+                        subjectId = subId,
+                        subjectName = subName,
+                        taskName = result.taskName ?: "Core Study Block",
+                        startTime = result.startTime,
+                        endTime = result.endTime,
+                        durationMinutes = result.durationMinutes,
+                        colorHex = existing?.colorHex ?: "#38BDF8"
+                    )
+                    AlarmRingingManager.startRinging(getApplication(), ringInfo)
+
+                    // If lockApps is requested, immediately engage distraction shield and start session
+                    if (result.lockApps) {
+                        startFocusSession(
+                            subjectId = subId,
+                            subjectName = subName,
+                            taskName = result.taskName ?: "Core Study Block",
+                            durationMinutes = result.durationMinutes,
+                            mode = "COUNTDOWN"
+                        )
+                    }
+                    syncWithRedis()
+                }
+                "STOP_FOCUS" -> {
+                    confirmEndSession(isCompleted = false, reason = "Stopped via AI Assistant")
+                    stopAlarmRinging()
+                    syncWithRedis()
+                }
+            }
+
+            val aiMsg = AiAssistantMessage(
+                isUser = false,
+                text = result.replyMessage,
+                actionType = result.actionType,
+                tips = result.guidanceTips
+            )
+            _aiAssistantMessages.value = _aiAssistantMessages.value + aiMsg
+            _isAiAssistantLoading.value = false
+        }
+    }
+
+    fun aiQuickScheduleAndLock(subjectName: String? = null, startTime: String = "06:00", endTime: String = "08:00") {
+        val s = subjectName ?: subjects.value.firstOrNull()?.name ?: "Mathematics"
+        sendAiAssistantPrompt("Please schedule $s timetable from $startTime to $endTime and lock social media apps")
+    }
+
+    fun aiQuickStudyGuidance() {
+        sendAiAssistantPrompt("How should I prepare for studying? Give me guidance.")
+    }
+
+    fun aiQuickAppStructure() {
+        sendAiAssistantPrompt("Explain the app structure and features.")
+    }
+
+    fun aiQuickStopFocus() {
+        sendAiAssistantPrompt("Stop the focus session and unlock apps.")
+    }
+
+    // --- Ringing & Redis Backend Actions ---
+    fun stopAlarmRinging() {
+        AlarmRingingManager.stopRinging()
+    }
+
+    fun testOrPreviewRinging(session: TimetableSessionEntity) {
+        val info = RingingSessionInfo(
+            sessionId = session.id,
+            subjectId = session.subjectId,
+            subjectName = session.subjectName,
+            taskName = session.taskName,
+            startTime = session.startTime,
+            endTime = session.endTime,
+            durationMinutes = session.durationMinutes,
+            colorHex = session.colorHex,
+            soundUri = session.soundUri
+        )
+        AlarmRingingManager.startRinging(getApplication(), info)
+    }
+
+    fun startFocusFromRinging(session: RingingSessionInfo) {
+        stopAlarmRinging()
+        startFocusSession(
+            subjectId = session.subjectId,
+            subjectName = session.subjectName,
+            taskName = session.taskName,
+            durationMinutes = session.durationMinutes,
+            mode = "COUNTDOWN"
+        )
+    }
+
+    fun syncWithRedis() {
+        viewModelScope.launch {
+            redisDatabaseManager.syncDatabaseWithRedis(db, userSettings.value)
+        }
     }
 
     // --- Settings & Profile ---
@@ -551,28 +1097,42 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun signInWithGoogle(name: String, email: String) {
-        authManager.mockSignInGoogle(name, email)
+    fun signInWithGoogleCredential(activityContext: Context, customClientId: String? = null) {
+        viewModelScope.launch {
+            authManager.signInWithGoogleCredential(activityContext, customClientId)
+        }
+    }
+
+    fun connectGoogleProfile(name: String, email: String, photoUrl: String? = null) {
+        authManager.connectVerifiedGoogleProfile(name, email, photoUrl)
         viewModelScope.launch {
             val current = repository.getUserSettingsSync()
             repository.updateUserSettings(
                 current.copy(
                     userName = name,
                     userEmail = email,
-                    isGoogleSignedIn = true
+                    isGoogleSignedIn = true,
+                    cloudSyncEnabled = true,
+                    lastSyncTimestamp = System.currentTimeMillis()
                 )
             )
         }
     }
 
-    fun signOutGoogle() {
-        authManager.signOut()
+    fun signInWithGoogle(name: String, email: String, photoUrl: String? = null) {
+        connectGoogleProfile(name, email, photoUrl)
+    }
+
+    fun signOutGoogle(activityContext: Context? = null) {
         viewModelScope.launch {
+            authManager.signOut(activityContext)
             val current = repository.getUserSettingsSync()
             repository.updateUserSettings(
                 current.copy(
+                    userName = "Scholar",
                     isGoogleSignedIn = false,
-                    userEmail = null
+                    userEmail = null,
+                    cloudSyncEnabled = false
                 )
             )
         }
@@ -617,11 +1177,19 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         fun getGreetingForCurrentHour(): String {
             val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             return when (hour) {
-                in 5..11 -> "Good morning"
-                in 12..16 -> "Good afternoon"
-                in 17..22 -> "Good evening"
-                else -> "Night owl focus"
+                in 5..11 -> "Good Morning"
+                in 12..16 -> "Good Afternoon"
+                else -> "Good Evening"
             }
         }
     }
 }
+
+data class WeakTopicInfo(
+    val topicName: String,
+    val subjectId: String,
+    val chapterId: String,
+    val totalAttempts: Int,
+    val correctAttempts: Int,
+    val accuracy: Int
+)

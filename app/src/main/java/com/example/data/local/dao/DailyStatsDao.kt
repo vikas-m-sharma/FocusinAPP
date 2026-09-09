@@ -20,6 +20,12 @@ interface DailyStatsDao {
     fun getRecentWeekStats(): Flow<List<DailyStatsEntity>>
 
     @Query("SELECT * FROM daily_stats ORDER BY dateString DESC LIMIT 30")
+    fun getRecentMonthStats(): Flow<List<DailyStatsEntity>>
+
+    @Query("SELECT * FROM daily_stats ORDER BY dateString DESC LIMIT 365")
+    fun getRecentYearStats(): Flow<List<DailyStatsEntity>>
+
+    @Query("SELECT * FROM daily_stats ORDER BY dateString DESC LIMIT 30")
     suspend fun getRecentMonthStatsSync(): List<DailyStatsEntity>
 
     @Query("SELECT * FROM daily_stats ORDER BY dateString DESC")

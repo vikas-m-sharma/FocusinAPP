@@ -24,12 +24,114 @@ class FocusinRepository(private val database: AppDatabase) {
     private val voiceRecordingDao = database.voiceRecordingDao()
     private val achievementDao = database.achievementDao()
     private val userSettingsDao = database.userSettingsDao()
+    val learningDao = database.learningDao()
+
+    // Learning Flows
+    val neetChapters: Flow<List<com.example.data.local.entity.ChapterEntity>> = learningDao.getChaptersByExam("NEET")
+    val lastActiveChapter: Flow<com.example.data.local.entity.ChapterEntity?> = learningDao.getLastActiveChapter()
+    val allQuestionAttempts: Flow<List<com.example.data.local.entity.QuestionAttemptEntity>> = learningDao.getAllQuestionAttempts()
+    val allQuizAttempts: Flow<List<com.example.data.local.entity.QuizAttemptEntity>> = learningDao.getAllQuizAttempts()
+    val recentQuizAttempts: Flow<List<com.example.data.local.entity.QuizAttemptEntity>> = learningDao.getRecentQuizAttempts()
+    val totalQuestionsAttempted: Flow<Int> = learningDao.getTotalAttemptedCount()
+    val totalQuestionsCorrect: Flow<Int> = learningDao.getTotalCorrectCount()
+    val featuredResources: Flow<List<com.example.data.local.entity.LearningResourceEntity>> = learningDao.getFeaturedResources("NEET")
+    val bookmarkedQuestions: Flow<List<com.example.data.local.entity.QuestionEntity>> = learningDao.getBookmarkedQuestions()
+    val mockTestAttempts: Flow<List<com.example.data.local.entity.QuizAttemptEntity>> = learningDao.getMockTestAttempts()
+    val totalMockTestsCount: Flow<Int> = learningDao.getTotalMockTestsCount()
+
+    fun getQuestionsForSubject(subjectId: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        learningDao.getQuestionsForSubject(subjectId)
+
+    fun getQuestionsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        learningDao.getQuestionsForChapter(chapterId)
+
+    fun getQuestionsForTopic(chapterId: String, topicName: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        learningDao.getQuestionsForTopic(chapterId, topicName)
+
+    fun getQuestionsForPYQ(year: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        learningDao.getQuestionsForPYQ(year)
+
+    fun getAvailablePYQYears(): Flow<List<String>> =
+        learningDao.getAvailablePYQYears()
+
+    suspend fun setQuestionBookmarked(questionId: String, isBookmarked: Boolean) {
+        learningDao.updateQuestionBookmark(questionId, isBookmarked)
+    }
+
+    suspend fun recordQuestionAttempt(attempt: com.example.data.local.entity.QuestionAttemptEntity): Long {
+        val id = learningDao.recordQuestionAttempt(attempt)
+        // Also update chapter stats
+        val chapter = learningDao.getChapterDirect(attempt.chapterId)
+        if (chapter != null) {
+            val newAttempted = chapter.attemptedQuestions + 1
+            val newCorrect = if (attempt.isCorrect) chapter.correctAttempts + 1 else chapter.correctAttempts
+            learningDao.updateChapter(
+                chapter.copy(
+                    attemptedQuestions = newAttempted,
+                    correctAttempts = newCorrect,
+                    lastAccessedTimestamp = System.currentTimeMillis()
+                )
+            )
+        }
+        return id
+    }
+
+    suspend fun recordQuizAttempt(attempt: com.example.data.local.entity.QuizAttemptEntity): Long =
+        learningDao.recordQuizAttempt(attempt)
+
+    fun getQuizAttemptById(id: Long): Flow<com.example.data.local.entity.QuizAttemptEntity?> =
+        learningDao.getQuizAttemptById(id)
+
+    suspend fun insertQuestions(questions: List<com.example.data.local.entity.QuestionEntity>) =
+        learningDao.insertQuestions(questions)
+
+    fun getAttemptsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionAttemptEntity>> =
+        learningDao.getAttemptsForChapter(chapterId)
+
+    fun getAttemptsForSubject(subjectId: String): Flow<List<com.example.data.local.entity.QuestionAttemptEntity>> =
+        learningDao.getAttemptsForSubject(subjectId)
+
+    fun getChaptersBySubject(examId: String, subjectId: String): Flow<List<com.example.data.local.entity.ChapterEntity>> =
+        learningDao.getChaptersBySubject(examId, subjectId)
+
+    fun getResourcesForChapter(chapterId: String): Flow<List<com.example.data.local.entity.LearningResourceEntity>> =
+        learningDao.getResourcesForChapter(chapterId)
+
+    fun getResourcesForTopic(topicId: String): Flow<List<com.example.data.local.entity.LearningResourceEntity>> =
+        learningDao.getResourcesForTopic(topicId)
+
+    suspend fun updateTopicStatusAndSyncChapter(topicId: String, chapterId: String, newStatus: String) {
+        learningDao.updateTopicStatus(topicId, newStatus, System.currentTimeMillis())
+        val topics = learningDao.getTopicsDirect(chapterId)
+        val completedCount = topics.count { it.status == "COMPLETED" }
+        val chapter = learningDao.getChapterDirect(chapterId)
+        if (chapter != null) {
+            learningDao.updateChapter(
+                chapter.copy(
+                    completedTopics = completedCount,
+                    totalTopics = if (topics.isNotEmpty()) topics.size else chapter.totalTopics,
+                    lastAccessedTimestamp = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    suspend fun updateResourceCompletion(resourceId: String, completed: Boolean) {
+        learningDao.updateResourceCompletion(resourceId, completed)
+    }
+
+    suspend fun updateResourceBookmark(resourceId: String, bookmarked: Boolean) {
+        learningDao.updateResourceBookmark(resourceId, bookmarked)
+    }
 
     // Flows
     val allSubjects: Flow<List<SubjectEntity>> = subjectDao.getAllSubjects()
     val allTimetableSessions: Flow<List<TimetableSessionEntity>> = timetableDao.getAllSessions()
     val allRecords: Flow<List<FocusSessionRecordEntity>> = focusSessionDao.getAllRecords()
     val recentWeekStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentWeekStats()
+    val recentMonthStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentMonthStats()
+    val recentYearStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentYearStats()
+    val allDailyStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getAllStats()
     val allVoiceRecordings: Flow<List<VoiceRecordingEntity>> = voiceRecordingDao.getAllRecordings()
     val allAchievements: Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
     val userSettings: Flow<UserSettingsEntity?> = userSettingsDao.getUserSettings()

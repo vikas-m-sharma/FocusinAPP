@@ -14,6 +14,9 @@ interface TimetableDao {
     @Query("SELECT * FROM timetable_sessions ORDER BY dayOfWeek ASC, startTime ASC")
     fun getAllSessions(): Flow<List<TimetableSessionEntity>>
 
+    @Query("SELECT * FROM timetable_sessions ORDER BY dayOfWeek ASC, startTime ASC")
+    suspend fun getAllSessionsList(): List<TimetableSessionEntity>
+
     @Query("SELECT * FROM timetable_sessions WHERE dayOfWeek = :dayOfWeek AND isEnabled = 1 ORDER BY startTime ASC")
     fun getSessionsForDay(dayOfWeek: Int): Flow<List<TimetableSessionEntity>>
 

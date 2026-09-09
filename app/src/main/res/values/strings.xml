@@ -6,4 +6,5 @@
     <string name="notification_channel_focus_desc">Displays ongoing focus timer and controls</string>
     <string name="notification_channel_reminders">Study Reminders</string>
     <string name="notification_channel_reminders_desc">Scheduled session reminders and alarms</string>
+    <string name="google_web_client_id">1086202462616-focusin-default-web-client-id.apps.googleusercontent.com</string>
 </resources>

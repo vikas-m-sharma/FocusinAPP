@@ -12,6 +12,9 @@ interface FocusSessionDao {
     @Query("SELECT * FROM focus_session_records ORDER BY startTimeMillis DESC")
     fun getAllRecords(): Flow<List<FocusSessionRecordEntity>>
 
+    @Query("SELECT * FROM focus_session_records ORDER BY startTimeMillis DESC")
+    suspend fun getAllRecordsList(): List<FocusSessionRecordEntity>
+
     @Query("SELECT * FROM focus_session_records WHERE dateString = :dateString ORDER BY startTimeMillis ASC")
     fun getRecordsForDate(dateString: String): Flow<List<FocusSessionRecordEntity>>
 

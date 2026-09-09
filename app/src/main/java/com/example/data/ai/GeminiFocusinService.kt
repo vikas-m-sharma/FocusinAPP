@@ -60,6 +60,18 @@ data class CoachAnalysisResult(
     val actionableRecommendations: List<String> get() = recommendations
 }
 
+data class AiAssistantResult(
+    val replyMessage: String,
+    val actionType: String, // "SCHEDULE_AND_LOCK", "STUDY_GUIDANCE", "APP_STRUCTURE", "STOP_FOCUS", "CHAT"
+    val subjectName: String? = null,
+    val taskName: String? = null,
+    val startTime: String = "06:00",
+    val endTime: String = "08:00",
+    val durationMinutes: Int = 120,
+    val guidanceTips: List<String> = emptyList(),
+    val lockApps: Boolean = false
+)
+
 class GeminiFocusinService {
 
     private val client = OkHttpClient.Builder()
@@ -205,6 +217,57 @@ class GeminiFocusinService {
 
     suspend fun analyzeWeeklyPerformance(recentStats: List<DailyStatsEntity>): CoachAnalysisResult =
         analyzeWeek(recentStats)
+
+    suspend fun interactWithAssistant(
+        userInput: String,
+        userName: String,
+        existingSubjects: List<String>,
+        isFocusActive: Boolean
+    ): AiAssistantResult = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext fallbackAssistantResponse(userInput, userName, existingSubjects, isFocusActive)
+        }
+
+        val prompt = """
+            You are FOCUSIN AI Personal Study Assistant. Always address the student politely as "Sir" or "Ma'am" or "Sir/Ma'am $userName".
+            Student input: "$userInput"
+            Available subjects: ${existingSubjects.joinToString(", ")}
+            Is focus session currently active: $isFocusActive
+
+            Determine the student's intent:
+            1. SCHEDULE_AND_LOCK: Student wants to schedule a timetable study block (e.g. 6:00 AM to 8:00 AM or specified hours) and/or lock distracting social media apps (Instagram, YouTube, TikTok, Facebook, Twitter, Reddit, Snapchat, Netflix).
+            2. STUDY_GUIDANCE: Student asks how to prepare for studying, focus techniques, active recall, or environment setup.
+            3. APP_STRUCTURE: Student asks about the app's structure, navigation, features, or how Focusin works.
+            4. STOP_FOCUS: Student wants to stop focus, unlock apps, or end shielding ("stop", "cancel", "unlock").
+            5. CHAT: General conversational greeting or question.
+
+            Return ONLY a valid JSON object without markdown formatting:
+            {
+              "replyMessage": "Polite response addressing the student as Sir/Ma'am $userName...",
+              "actionType": "SCHEDULE_AND_LOCK",
+              "subjectName": "Mathematics",
+              "taskName": "Deep Focus Block",
+              "startTime": "06:00",
+              "endTime": "08:00",
+              "durationMinutes": 120,
+              "guidanceTips": [
+                "Clear desk of phone and distractions",
+                "Keep water nearby",
+                "Follow 50/10 study/rest cadence"
+              ],
+              "lockApps": true
+            }
+        """.trimIndent()
+
+        try {
+            val responseText = callGemini(prompt)
+            parseAssistantJson(responseText, userName, existingSubjects)
+                ?: fallbackAssistantResponse(userInput, userName, existingSubjects, isFocusActive)
+        } catch (e: Exception) {
+            Log.e("GeminiFocusinService", "Error in interactWithAssistant", e)
+            fallbackAssistantResponse(userInput, userName, existingSubjects, isFocusActive)
+        }
+    }
 
     private fun callGemini(prompt: String): String {
         val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
@@ -408,6 +471,126 @@ class GeminiFocusinService {
             milestones = milestones,
             actionableTips = tips
         )
+    }
+
+    private fun parseAssistantJson(raw: String, userName: String, existingSubjects: List<String>): AiAssistantResult? {
+        return try {
+            val clean = cleanJson(raw)
+            val obj = JSONObject(clean)
+            val replyMessage = obj.optString("replyMessage", "Hello Sir/Ma'am $userName, I am ready to assist your study.")
+            val actionType = obj.optString("actionType", "CHAT")
+            val subjectName = obj.optString("subjectName", existingSubjects.firstOrNull() ?: "Mathematics")
+            val taskName = obj.optString("taskName", "Deep Study Block")
+            val startTime = obj.optString("startTime", "06:00")
+            val endTime = obj.optString("endTime", "08:00")
+            val durationMinutes = obj.optInt("durationMinutes", 120)
+            val lockApps = obj.optBoolean("lockApps", false)
+
+            val tipsArray = obj.optJSONArray("guidanceTips")
+            val tips = mutableListOf<String>()
+            if (tipsArray != null) {
+                for (i in 0 until tipsArray.length()) {
+                    tips.add(tipsArray.getString(i))
+                }
+            }
+
+            AiAssistantResult(
+                replyMessage = replyMessage,
+                actionType = actionType,
+                subjectName = subjectName,
+                taskName = taskName,
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = durationMinutes,
+                guidanceTips = tips,
+                lockApps = lockApps
+            )
+        } catch (e: Exception) {
+            Log.e("GeminiFocusinService", "Failed to parse assistant JSON", e)
+            null
+        }
+    }
+
+    private fun fallbackAssistantResponse(
+        userInput: String,
+        userName: String,
+        existingSubjects: List<String>,
+        isFocusActive: Boolean
+    ): AiAssistantResult {
+        val lower = userInput.lowercase().trim()
+        val defaultSubject = existingSubjects.firstOrNull() ?: "Mathematics"
+
+        return when {
+            lower.contains("stop") || lower.contains("cancel") || lower.contains("unlock") || lower.contains("end") -> {
+                AiAssistantResult(
+                    replyMessage = "Focus session stopped and social apps unlocked, Sir/Ma'am $userName! Take a well-deserved rest.",
+                    actionType = "STOP_FOCUS",
+                    lockApps = false
+                )
+            }
+            lower.contains("prepare") || lower.contains("how to study") || lower.contains("guide") || lower.contains("technique") || lower.contains("exam") -> {
+                AiAssistantResult(
+                    replyMessage = "Here is your study preparation strategy, Sir/Ma'am $userName. Following these 4 pillars primes your brain for maximum memory retention:",
+                    actionType = "STUDY_GUIDANCE",
+                    guidanceTips = listOf(
+                        "1. Sanctuary Space: Clear your desk completely of all devices except study notes and textbooks.",
+                        "2. Hydration & Lighting: Keep a water bottle ready and maintain cool, bright white workspace lighting.",
+                        "3. Active Recall: Never passively re-read. After every 25 minutes, write down concepts from memory.",
+                        "4. 50/10 Rhythm: Deep focus for 50 minutes, followed by 10 minutes away from screens.",
+                        "5. Distraction Shield: Let Focusin lock social media apps so impulse notifications never interrupt flow."
+                    )
+                )
+            }
+            lower.contains("structure") || lower.contains("app") || lower.contains("tour") || lower.contains("feature") || lower.contains("how it works") -> {
+                AiAssistantResult(
+                    replyMessage = "Here is the structure and architecture of Focusin, Sir/Ma'am $userName:",
+                    actionType = "APP_STRUCTURE",
+                    guidanceTips = listOf(
+                        "🏠 Home: Live focus countdown, daily progress bar, and 1-tap quick focus launcher.",
+                        "📅 Schedule: Weekly timetable planner with exact start alarms and repeating study blocks.",
+                        "🎙️ Voice Studio: Record personal audio notes and motivational voice alarms.",
+                        "📊 Performance: Track focus scores, distraction count, and weekly AI coach insights.",
+                        "⚙️ Settings & Shield: Configure blocked apps (Instagram, YouTube, etc.) and accessibility guard."
+                    )
+                )
+            }
+            lower.contains("schedule") || lower.contains("lock") || lower.contains("yes") || lower.contains("time table") || lower.contains("timetable") || lower.contains("social") || lower.contains("disable") -> {
+                // Check if user mentioned custom times like 6am to 8am
+                var sTime = "06:00"
+                var eTime = "08:00"
+                if (lower.contains("6") && lower.contains("8")) {
+                    sTime = "06:00"
+                    eTime = "08:00"
+                }
+
+                AiAssistantResult(
+                    replyMessage = "Certainly Sir/Ma'am $userName! I have scheduled your study timetable for $defaultSubject ($sTime to $eTime) with start alarms, and locked distracting social media apps (Instagram, YouTube, TikTok, etc.) to safeguard your focus.",
+                    actionType = "SCHEDULE_AND_LOCK",
+                    subjectName = defaultSubject,
+                    taskName = "Core Study Session",
+                    startTime = sTime,
+                    endTime = eTime,
+                    durationMinutes = 120,
+                    guidanceTips = listOf(
+                        "Timetable study block added to Room database: $defaultSubject ($sTime - $eTime)",
+                        "Start alarm armed: Notification & ringtone will alert you at $sTime",
+                        "Distraction Shield active: Social media apps locked during active focus"
+                    ),
+                    lockApps = true
+                )
+            }
+            else -> {
+                AiAssistantResult(
+                    replyMessage = "Hello Sir/Ma'am $userName! 👋 Focusin AI here. Would you like me to schedule your study timetable (e.g. 6:00 AM - 8:00 AM) and lock distracting social media apps to protect your focus?",
+                    actionType = "CHAT",
+                    guidanceTips = listOf(
+                        "Tap 'Schedule & Lock' to plan sessions and shield distracting apps",
+                        "Tap 'How to Prepare' for active study techniques",
+                        "Tap 'App Structure' for a walkthrough of all features"
+                    )
+                )
+            }
+        }
     }
 
     private fun fallbackAnalysis(
