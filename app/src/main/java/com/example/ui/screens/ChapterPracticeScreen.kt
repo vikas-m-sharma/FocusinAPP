@@ -63,7 +63,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entity.QuestionEntity
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -84,18 +83,15 @@ fun ChapterPracticeScreen(
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val chapter by viewModel.getChapterFlow(chapterId).collectAsState(initial = null)
-    val questions by viewModel.getQuestionsForChapter(chapterId).collectAsState(initial = emptyList())
+    val chapter = remember(chapterId) {
+        (com.example.data.model.neetPhysicsChapters + com.example.data.model.neetChemistryChapters + com.example.data.model.neetBiologyChapters)
+            .find { it.id == chapterId } ?: com.example.data.model.neetPhysicsChapters.first()
+    }
+    val questions = remember { com.example.data.model.sampleNeetQuestions }
 
     // Filter questions if in PYQ mode
     val displayQuestions = remember(questions, mode) {
-        if (mode.startsWith("PYQ_")) {
-            val year = mode.removePrefix("PYQ_")
-            val pyqs = questions.filter { it.pyqYear == year }
-            if (pyqs.isNotEmpty()) pyqs else questions
-        } else {
-            questions
-        }
+        questions
     }
 
     var currentIndex by remember { mutableIntStateOf(0) }
@@ -222,31 +218,15 @@ fun ChapterPracticeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (currentQuestion.pyqYear != null) {
-                                Surface(
-                                    color = EmeraldSuccess.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = currentQuestion.pyqYear ?: "PYQ",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = EmeraldSuccess,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-
+                            var isBookmarked by remember(currentQuestion.id) { mutableStateOf(false) }
                             IconButton(
-                                onClick = {
-                                    viewModel.toggleQuestionBookmark(currentQuestion.id, currentQuestion.isBookmarked)
-                                },
+                                onClick = { isBookmarked = !isBookmarked },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (currentQuestion.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                                     contentDescription = "Bookmark question",
-                                    tint = if (currentQuestion.isBookmarked) Color(0xFFFBBF24) else Color(0xFF94A3B8),
+                                    tint = if (isBookmarked) Color(0xFFFBBF24) else Color(0xFF94A3B8),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -277,14 +257,10 @@ fun ChapterPracticeScreen(
                 // Options (A, B, C, D)
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf(
-                            "A" to currentQuestion.optionA,
-                            "B" to currentQuestion.optionB,
-                            "C" to currentQuestion.optionC,
-                            "D" to currentQuestion.optionD
-                        ).forEach { (optKey, optText) ->
+                        currentQuestion.options.forEachIndexed { optIndex, optText ->
+                            val optKey = listOf("A", "B", "C", "D").getOrElse(optIndex) { "A" }
                             val isSelected = selectedOption == optKey
-                            val isCorrectAnswer = optKey == currentQuestion.correctOption
+                            val isCorrectAnswer = optIndex == currentQuestion.correctOptionIndex
 
                             val cardBackground = when {
                                 hasCheckedAnswer && isCorrectAnswer -> EmeraldSuccess.copy(alpha = 0.15f)
@@ -345,21 +321,27 @@ fun ChapterPracticeScreen(
 
                 // Check or Next Actions
                 item {
+                    val correctOptKey = listOf("A", "B", "C", "D").getOrElse(currentQuestion.correctOptionIndex) { "A" }
                     if (!hasCheckedAnswer) {
                         Button(
                             onClick = {
                                 if (selectedOption != null) {
                                     hasCheckedAnswer = true
-                                    val isCorrect = selectedOption == currentQuestion.correctOption
+                                    val isCorrect = selectedOption == correctOptKey
                                     if (isCorrect) correctCount++ else wrongCount++
                                     viewModel.recordQuestionAttempt(
-                                        questionId = currentQuestion.id,
-                                        chapterId = currentQuestion.chapterId,
-                                        subjectId = currentQuestion.subjectId,
-                                        topicName = currentQuestion.topicName,
-                                        selectedOption = selectedOption ?: "",
-                                        isCorrect = isCorrect,
-                                        timeTakenSeconds = elapsedSeconds.toInt()
+                                        com.example.data.local.entity.QuestionAttemptRecordEntity(
+                                            examId = "NEET",
+                                            subjectName = currentQuestion.subjectName,
+                                            chapterName = currentQuestion.chapterName,
+                                            topicName = currentQuestion.topicName,
+                                            questionText = currentQuestion.questionText,
+                                            selectedOptionIndex = listOf("A", "B", "C", "D").indexOf(selectedOption ?: "A"),
+                                            correctOptionIndex = currentQuestion.correctOptionIndex,
+                                            isCorrect = isCorrect,
+                                            timeSpentSeconds = elapsedSeconds.toInt(),
+                                            quizType = "PRACTICE"
+                                        )
                                     )
                                 }
                             },
@@ -385,16 +367,16 @@ fun ChapterPracticeScreen(
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            imageVector = if (selectedOption == currentQuestion.correctOption) Icons.Default.Check else Icons.Default.Close,
+                                            imageVector = if (selectedOption == correctOptKey) Icons.Default.Check else Icons.Default.Close,
                                             contentDescription = null,
-                                            tint = if (selectedOption == currentQuestion.correctOption) EmeraldSuccess else RoseError
+                                            tint = if (selectedOption == correctOptKey) EmeraldSuccess else RoseError
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = if (selectedOption == currentQuestion.correctOption) "Correct Solution" else "Incorrect — Correct is (${currentQuestion.correctOption})",
+                                            text = if (selectedOption == correctOptKey) "Correct Solution" else "Incorrect — Correct is ($correctOptKey)",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (selectedOption == currentQuestion.correctOption) EmeraldSuccess else RoseError
+                                            color = if (selectedOption == correctOptKey) EmeraldSuccess else RoseError
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -468,7 +450,17 @@ fun ChapterPracticeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
                         onClick = {
-                            viewModel.addRevisionToSchedule(chapter?.subjectId ?: "PHYSICS", chapter?.name ?: "Revision")
+                            viewModel.scheduleLearningSession(
+                                subjectName = chapter.subjectName,
+                                topicName = chapter.name,
+                                dayOfWeek = 1,
+                                startTime = "18:00",
+                                endTime = "19:00",
+                                durationMinutes = 60,
+                                focusModeEnabled = true,
+                                alarmEnabled = true,
+                                protectionLevel = "ENHANCED"
+                            )
                             showResultsDialog = false
                             onNavigateBack()
                         },

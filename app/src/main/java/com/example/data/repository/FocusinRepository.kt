@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import com.example.data.local.AppDatabase
 import com.example.data.local.entity.AchievementEntity
+<<<<<<< HEAD
 import com.example.data.local.entity.ChapterEntity
 import com.example.data.local.entity.ChapterProgressEntity
 import com.example.data.local.entity.DailyStatsEntity
@@ -11,6 +12,12 @@ import com.example.data.local.entity.QuestionAttemptEntity
 import com.example.data.local.entity.QuestionAttemptRecordEntity
 import com.example.data.local.entity.QuestionEntity
 import com.example.data.local.entity.QuizAttemptEntity
+=======
+import com.example.data.local.entity.ChapterProgressEntity
+import com.example.data.local.entity.DailyStatsEntity
+import com.example.data.local.entity.FocusSessionRecordEntity
+import com.example.data.local.entity.QuestionAttemptRecordEntity
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 import com.example.data.local.entity.QuizAttemptRecordEntity
 import com.example.data.local.entity.SubjectEntity
 import com.example.data.local.entity.TimetableSessionEntity
@@ -39,14 +46,21 @@ class FocusinRepository(private val database: AppDatabase) {
     val allTimetableSessions: Flow<List<TimetableSessionEntity>> = timetableDao.getAllSessions()
     val allRecords: Flow<List<FocusSessionRecordEntity>> = focusSessionDao.getAllRecords()
     val recentWeekStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentWeekStats()
+    val recentMonthStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentMonthStats()
+    val recentYearStats: Flow<List<DailyStatsEntity>> = dailyStatsDao.getRecentYearStats()
     val allVoiceRecordings: Flow<List<VoiceRecordingEntity>> = voiceRecordingDao.getAllRecordings()
     val allAchievements: Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
     val userSettings: Flow<UserSettingsEntity?> = userSettingsDao.getUserSettings()
 
+<<<<<<< HEAD
+=======
+    // Learning Analytics Flows
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
     val allChapterProgress: Flow<List<ChapterProgressEntity>> = learningDao.getAllChapterProgress()
     val allQuestionAttempts: Flow<List<QuestionAttemptRecordEntity>> = learningDao.getAllQuestionAttempts()
     val allQuizAttempts: Flow<List<QuizAttemptRecordEntity>> = learningDao.getAllQuizAttempts()
 
+<<<<<<< HEAD
     val allChapters: Flow<List<ChapterEntity>> = learningDao.getAllChapters()
     val allQuestions: Flow<List<QuestionEntity>> = learningDao.getAllQuestions()
     val bookmarkedQuestions: Flow<List<QuestionEntity>> = learningDao.bookmarkedQuestions()
@@ -71,11 +85,29 @@ class FocusinRepository(private val database: AppDatabase) {
     suspend fun getQuizAttemptById(id: Long) = learningDao.getQuizAttemptById(id)
     fun getQuizAttemptFlowById(id: Long) = learningDao.getQuizAttemptFlowById(id)
 
+=======
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
     fun getSessionsForDay(dayOfWeek: Int): Flow<List<TimetableSessionEntity>> =
         timetableDao.getSessionsForDay(dayOfWeek)
 
     fun getTodayStats(dateString: String = getTodayDateString()): Flow<DailyStatsEntity?> =
         dailyStatsDao.getStatsForDate(dateString)
+
+    // Learning Data Methods
+    suspend fun getChapterProgressById(chapterId: String): ChapterProgressEntity? =
+        learningDao.getChapterProgressById(chapterId)
+
+    suspend fun updateChapterProgress(progress: ChapterProgressEntity) =
+        learningDao.insertOrUpdateChapterProgress(progress)
+
+    suspend fun recordQuestionAttempt(attempt: QuestionAttemptRecordEntity): Long =
+        learningDao.insertQuestionAttempt(attempt)
+
+    suspend fun recordQuizAttempt(attempt: QuizAttemptRecordEntity): Long =
+        learningDao.insertQuizAttempt(attempt)
+
+    suspend fun getQuizAttemptById(id: Long): QuizAttemptRecordEntity? =
+        learningDao.getQuizAttemptById(id)
 
     // Subjects
     suspend fun insertSubject(
@@ -354,7 +386,33 @@ class FocusinRepository(private val database: AppDatabase) {
             )
         }
 
-        getUserSettingsSync()
+        // Ensure today has a clean 0-metrics DailyStats entry if not present
+        val todayStr = getTodayDateString()
+        val todayStats = dailyStatsDao.getStatsForDateSync(todayStr)
+        if (todayStats == null) {
+            dailyStatsDao.insertOrUpdate(
+                DailyStatsEntity(
+                    dateString = todayStr,
+                    totalPlannedMinutes = 0,
+                    totalFocusedMinutes = 0,
+                    sessionsCompleted = 0,
+                    sessionsTotal = 0,
+                    focusScore = 0,
+                    distractionCount = 0,
+                    goalMinutes = 360
+                )
+            )
+        }
+
+        val settings = getUserSettingsSync()
+        if (settings.lastActiveDate.isEmpty()) {
+            userSettingsDao.insertOrUpdate(
+                settings.copy(
+                    currentStreak = 0,
+                    lastActiveDate = ""
+                )
+            )
+        }
     }
 
     // Optional Demo Data
@@ -524,6 +582,24 @@ class FocusinRepository(private val database: AppDatabase) {
         timetableDao.deleteAllSessions()
         focusSessionDao.deleteAll()
         dailyStatsDao.deleteAll()
+        learningDao.deleteAllChapterProgress()
+        learningDao.deleteAllQuestionAttempts()
+        learningDao.deleteAllQuizAttempts()
+
+        val todayStr = getTodayDateString()
+        dailyStatsDao.insertOrUpdate(
+            DailyStatsEntity(
+                dateString = todayStr,
+                totalPlannedMinutes = 0,
+                totalFocusedMinutes = 0,
+                sessionsCompleted = 0,
+                sessionsTotal = 0,
+                focusScore = 0,
+                distractionCount = 0,
+                goalMinutes = 360
+            )
+        )
+
         val settings = getUserSettingsSync()
         userSettingsDao.insertOrUpdate(settings.copy(currentStreak = 0, lastActiveDate = ""))
     }

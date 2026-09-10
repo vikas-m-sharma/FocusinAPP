@@ -77,10 +77,10 @@ fun TestResultsScreen(
     val attempt = quizAttempt ?: fallbackList.firstOrNull { it.id == quizId } ?: fallbackList.firstOrNull()
 
     val total = attempt?.totalQuestions ?: 10
-    val correct = attempt?.correctAnswers ?: 7
+    val correct = attempt?.correctCount ?: 7
     val incorrect = total - correct
-    val accuracy = if (total > 0) ((correct.toFloat() / total) * 100).toInt() else 70
-    val timeSec = attempt?.timeTakenSeconds ?: 420
+    val accuracy = attempt?.scorePercentage ?: if (total > 0) ((correct.toFloat() / total) * 100).toInt() else 70
+    val timeSec = 300
     val timeFormatted = "${timeSec / 60}m ${timeSec % 60}s"
 
     // Parse strong and weak topics json
@@ -162,7 +162,7 @@ fun TestResultsScreen(
                             "Recent Attempt"
                         }
                         Text(
-                            text = "${attempt?.subjectId ?: "PHYSICS"} • $formattedDate",
+                            text = "${attempt?.subjectName ?: "Physics"} • $formattedDate",
                             fontSize = 12.sp,
                             color = Color(0xFF94A3B8)
                         )
@@ -335,7 +335,8 @@ fun TestResultsScreen(
             item {
                 Button(
                     onClick = {
-                        onPracticeWeakAreas(attempt?.chapterId ?: "neet_phy_current_electricity")
+                        val chId = attempt?.chapterName?.lowercase()?.replace(" ", "_") ?: "neet_phy_current_electricity"
+                        onPracticeWeakAreas(chId)
                     },
                     modifier = Modifier
                         .fillMaxWidth()

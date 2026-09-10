@@ -42,6 +42,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+<<<<<<< HEAD
+=======
+import kotlinx.coroutines.flow.flow
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -95,6 +99,12 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     val recentWeekStats: StateFlow<List<DailyStatsEntity>> = repository.recentWeekStats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val recentMonthStats: StateFlow<List<DailyStatsEntity>> = repository.recentMonthStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentYearStats: StateFlow<List<DailyStatsEntity>> = repository.recentYearStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val voiceRecordings: StateFlow<List<VoiceRecordingEntity>> = repository.allVoiceRecordings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -116,6 +126,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     val quizAttemptsList: StateFlow<List<QuizAttemptRecordEntity>> = repository.allQuizAttempts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+<<<<<<< HEAD
     val neetChapters = repository.allChapters.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allQuestions = repository.allQuestions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val bookmarkedQuestions = repository.bookmarkedQuestions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -284,6 +295,40 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         scheduleLearningSession(subjectId = subjectId, topicName = topicName.ifBlank { chapterName })
     }
 
+=======
+    val allQuestionAttempts: StateFlow<List<QuestionAttemptRecordEntity>> = questionAttemptsList
+    val allQuizAttempts: StateFlow<List<QuizAttemptRecordEntity>> = quizAttemptsList
+    val allChapterProgress: StateFlow<List<ChapterProgressEntity>> = chapterProgressList
+
+    val totalQuestionsAttempted: StateFlow<Int> = questionAttemptsList.map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val totalQuestionsCorrect: StateFlow<Int> = questionAttemptsList.map { attempts -> attempts.count { it.isCorrect } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val calculatedWeakTopics: StateFlow<List<WeakTopicInfo>> = questionAttemptsList.map { attempts ->
+        if (attempts.isEmpty()) emptyList()
+        else {
+            attempts.groupBy { it.chapterName }.mapNotNull { (chName, list) ->
+                val total = list.size
+                val correct = list.count { it.isCorrect }
+                val accuracy = ((correct.toFloat() / total) * 100).toInt()
+                if (accuracy < 65) {
+                    val first = list.first()
+                    WeakTopicInfo(
+                        chapterId = first.chapterName.lowercase().replace(" ", "_"),
+                        topicName = if (first.topicName.isNotBlank()) first.topicName else first.chapterName,
+                        subjectName = first.subjectName,
+                        accuracy = accuracy,
+                        totalAttempts = total,
+                        correctAttempts = correct
+                    )
+                } else null
+            }.sortedBy { it.accuracy }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
     val activeSessionState: StateFlow<ActiveSessionState> = FocusSessionService.sessionState
 
     // Timetable selected day (1=Mon..7=Sun)
@@ -1068,9 +1113,15 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+<<<<<<< HEAD
     fun signOutGoogle(context: Context? = null) {
         viewModelScope.launch {
             authManager.signOut()
+=======
+    fun signOutGoogle(activityContext: Context? = null) {
+        viewModelScope.launch {
+            authManager.signOut(activityContext)
+>>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
             val current = repository.getUserSettingsSync()
             repository.updateUserSettings(
                 current.copy(
@@ -1078,6 +1129,50 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
                     userEmail = null
                 )
             )
+        }
+    }
+
+    fun getQuizAttemptById(id: Long): Flow<QuizAttemptRecordEntity?> {
+        return flow {
+            emit(repository.getQuizAttemptById(id))
+        }
+    }
+
+    fun scheduleLearningSession(
+        subjectName: String,
+        topicName: String,
+        dayOfWeek: Int,
+        startTime: String,
+        endTime: String,
+        durationMinutes: Int,
+        focusModeEnabled: Boolean = true,
+        alarmEnabled: Boolean = true,
+        protectionLevel: String = "ENHANCED"
+    ) {
+        viewModelScope.launch {
+            val colorHex = when (subjectName.lowercase()) {
+                "physics" -> "#06B6D4"
+                "chemistry" -> "#10B981"
+                "biology" -> "#8B5CF6"
+                else -> "#3B82F6"
+            }
+            val session = TimetableSessionEntity(
+                subjectId = 1L,
+                subjectName = subjectName,
+                taskName = topicName,
+                dayOfWeek = dayOfWeek,
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = durationMinutes,
+                colorHex = colorHex,
+                focusModeEnabled = focusModeEnabled,
+                alarmEnabled = alarmEnabled,
+                isEnabled = true
+            )
+            val id = repository.insertTimetableSession(session)
+            if (alarmEnabled) {
+                scheduleSessionAlarm(session.copy(id = id))
+            }
         }
     }
 
@@ -1132,3 +1227,13 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 }
+
+data class WeakTopicInfo(
+    val chapterId: String,
+    val topicName: String,
+    val subjectName: String,
+    val accuracy: Int,
+    val totalAttempts: Int,
+    val correctAttempts: Int
+)
+

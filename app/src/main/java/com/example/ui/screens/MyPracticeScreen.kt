@@ -222,8 +222,6 @@ fun MyPracticeScreen(
                 } else {
                     items(quizAttempts) { test ->
                         val dateStr = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()).format(Date(test.timestamp))
-                        val minutes = test.timeTakenSeconds / 60
-                        val seconds = test.timeTakenSeconds % 60
 
                         Card(
                             modifier = Modifier
@@ -243,14 +241,14 @@ fun MyPracticeScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Surface(
-                                        color = if (test.mode == "MOCK_TEST") EmeraldSuccess.copy(alpha = 0.15f) else CyanPrimary.copy(alpha = 0.15f),
+                                        color = EmeraldSuccess.copy(alpha = 0.15f),
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = if (test.mode == "MOCK_TEST") "MOCK TEST" else "PRACTICE QUIZ",
+                                            text = test.subjectName.uppercase(),
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (test.mode == "MOCK_TEST") EmeraldSuccess else CyanPrimary,
+                                            color = EmeraldSuccess,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
@@ -265,7 +263,7 @@ fun MyPracticeScreen(
                                 Spacer(modifier = Modifier.height(8.dp))
 
                                 Text(
-                                    text = test.chapterName,
+                                    text = test.title.ifEmpty { test.chapterName },
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -278,13 +276,13 @@ fun MyPracticeScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = "${test.correctAnswers} / ${test.totalQuestions} Correct (${test.accuracy}%)",
+                                        text = "${test.correctCount} / ${test.totalQuestions} Correct (${test.scorePercentage}%)",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (test.accuracy >= 65) EmeraldSuccess else Color(0xFFFBBF24)
+                                        color = if (test.scorePercentage >= 65) EmeraldSuccess else Color(0xFFFBBF24)
                                     )
                                     Text(
-                                        text = "Time: ${minutes}m ${seconds}s",
+                                        text = "Exam: ${test.examId}",
                                         fontSize = 12.sp,
                                         color = Color(0xFF94A3B8)
                                     )
@@ -348,7 +346,7 @@ fun MyPracticeScreen(
                                         color = Color.White
                                     )
                                     Text(
-                                        text = "${attempt.subjectId} • Choice ${attempt.selectedOption} • ${attempt.timeTakenSeconds}s • $dateStr",
+                                        text = "${attempt.subjectName} • Option ${listOf("A", "B", "C", "D").getOrElse(attempt.selectedOptionIndex) { "A" }} • ${attempt.timeSpentSeconds}s • $dateStr",
                                         fontSize = 11.sp,
                                         color = Color(0xFF94A3B8)
                                     )

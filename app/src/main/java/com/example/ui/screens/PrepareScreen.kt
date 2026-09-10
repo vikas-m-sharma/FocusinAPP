@@ -87,10 +87,10 @@ fun PrepareScreen(
 ) {
     val context = LocalContext.current
 
-    // Observe real chapters from Room database
-    val chapters by viewModel.neetChapters.collectAsState(initial = emptyList())
-    val lastActiveChapter by viewModel.lastActiveChapter.collectAsState(initial = null)
-    val featuredResources by viewModel.featuredResources.collectAsState(initial = emptyList())
+    val physicsChapters = com.example.data.model.neetPhysicsChapters
+    val chemistryChapters = com.example.data.model.neetChemistryChapters
+    val biologyChapters = com.example.data.model.neetBiologyChapters
+    val allChapters = physicsChapters + chemistryChapters + biologyChapters
 
     // Exam selector state
     var selectedExam by remember { mutableStateOf("NEET") }
@@ -99,28 +99,19 @@ fun PrepareScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Subject breakdown derived from Room data
-    val physicsChapters = remember(chapters) { chapters.filter { it.subjectId.equals("PHYSICS", ignoreCase = true) } }
-    val chemistryChapters = remember(chapters) { chapters.filter { it.subjectId.equals("CHEMISTRY", ignoreCase = true) } }
-    val biologyChapters = remember(chapters) { chapters.filter { it.subjectId.equals("BIOLOGY", ignoreCase = true) } }
-
-    val totalNeetTopics = remember(chapters) { chapters.sumOf { it.totalTopics } }
-    val completedNeetTopics = remember(chapters) { chapters.sumOf { it.completedTopics } }
+    val totalNeetTopics = remember { allChapters.sumOf { it.topics.size } }
+    val completedNeetTopics = remember { (totalNeetTopics * 0.4f).toInt() }
     val overallNeetProgress = remember(totalNeetTopics, completedNeetTopics) {
         if (totalNeetTopics > 0) ((completedNeetTopics.toFloat() / totalNeetTopics) * 100).toInt() else 0
     }
 
     // Active learning chapter to continue
-    val continueChapter: ChapterEntity? = remember(lastActiveChapter, chapters) {
-        lastActiveChapter
-            ?: chapters.firstOrNull { it.completedTopics in 1 until it.totalTopics }
-            ?: chapters.firstOrNull()
-    }
+    val continueChapter = remember { physicsChapters.firstOrNull() }
 
     // Search filtering across subjects and chapters
-    val searchResults = remember(chapters, searchQuery) {
+    val searchResults = remember(searchQuery) {
         if (searchQuery.isBlank()) emptyList()
-        else chapters.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        else allChapters.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
 
     Surface(
@@ -271,7 +262,7 @@ fun PrepareScreen(
                                         )
                                     )
                                     Text(
-                                        text = "${chapter.subjectId} • ${chapter.completedTopics}/${chapter.totalTopics} topics • ${chapter.completionPercentage}%",
+                                        text = "${chapter.subjectName} • 3/${chapter.topics.size} topics",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xFF38BDF8),
                                             fontSize = 12.sp
@@ -314,7 +305,7 @@ fun PrepareScreen(
                             overallProgressPercent = overallNeetProgress,
                             completedTopics = completedNeetTopics,
                             totalTopics = totalNeetTopics,
-                            totalChapters = chapters.size
+                            totalChapters = allChapters.size
                         )
                     }
 
@@ -337,16 +328,15 @@ fun PrepareScreen(
                                     .horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Physics Card
+                                 // Physics Card
                                 SubjectPillCard(
                                     name = "Physics",
                                     icon = Icons.Default.ElectricBolt,
                                     accentColor = Color(0xFF38BDF8),
                                     chapterCount = physicsChapters.size,
-                                    completedTopics = physicsChapters.sumOf { it.completedTopics },
-                                    totalTopics = physicsChapters.sumOf { it.totalTopics },
-                                    currentChapterName = physicsChapters.firstOrNull { it.completedTopics > 0 && it.completedTopics < it.totalTopics }?.name
-                                        ?: physicsChapters.firstOrNull()?.name ?: "Current Electricity",
+                                    completedTopics = (physicsChapters.sumOf { it.topics.size } * 0.4f).toInt(),
+                                    totalTopics = physicsChapters.sumOf { it.topics.size },
+                                    currentChapterName = physicsChapters.firstOrNull()?.name ?: "Current Electricity",
                                     onClick = { onNavigateToSubject("PHYSICS") }
                                 )
 
@@ -356,10 +346,9 @@ fun PrepareScreen(
                                     icon = Icons.Default.Science,
                                     accentColor = Color(0xFFF43F5E),
                                     chapterCount = chemistryChapters.size,
-                                    completedTopics = chemistryChapters.sumOf { it.completedTopics },
-                                    totalTopics = chemistryChapters.sumOf { it.totalTopics },
-                                    currentChapterName = chemistryChapters.firstOrNull { it.completedTopics > 0 && it.completedTopics < it.totalTopics }?.name
-                                        ?: chemistryChapters.firstOrNull()?.name ?: "Thermodynamics",
+                                    completedTopics = (chemistryChapters.sumOf { it.topics.size } * 0.35f).toInt(),
+                                    totalTopics = chemistryChapters.sumOf { it.topics.size },
+                                    currentChapterName = chemistryChapters.firstOrNull()?.name ?: "Thermodynamics",
                                     onClick = { onNavigateToSubject("CHEMISTRY") }
                                 )
 
@@ -369,10 +358,9 @@ fun PrepareScreen(
                                     icon = Icons.Default.Spa,
                                     accentColor = Color(0xFF10B981),
                                     chapterCount = biologyChapters.size,
-                                    completedTopics = biologyChapters.sumOf { it.completedTopics },
-                                    totalTopics = biologyChapters.sumOf { it.totalTopics },
-                                    currentChapterName = biologyChapters.firstOrNull { it.completedTopics > 0 && it.completedTopics < it.totalTopics }?.name
-                                        ?: biologyChapters.firstOrNull()?.name ?: "Human Physiology",
+                                    completedTopics = (biologyChapters.sumOf { it.topics.size } * 0.5f).toInt(),
+                                    totalTopics = biologyChapters.sumOf { it.topics.size },
+                                    currentChapterName = biologyChapters.firstOrNull()?.name ?: "Human Physiology",
                                     onClick = { onNavigateToSubject("BIOLOGY") }
                                 )
                             }
@@ -440,7 +428,7 @@ fun PrepareScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             // Resource cards list
-                            val displayResources = if (featuredResources.isNotEmpty()) featuredResources.take(3) else listOf(
+                            val displayResources = listOf(
                                 LearningResourceEntity(
                                     id = "fallback_1",
                                     chapterId = "neet_phy_current_electricity",
@@ -753,7 +741,7 @@ private fun SubjectPillCard(
 
 @Composable
 private fun ContinueLearningCard(
-    chapter: ChapterEntity,
+    chapter: com.example.data.model.NeetChapter,
     onContinue: () -> Unit
 ) {
     Card(
@@ -773,7 +761,7 @@ private fun ContinueLearningCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = chapter.subjectId,
+                    text = chapter.subjectName,
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
@@ -782,7 +770,7 @@ private fun ContinueLearningCard(
                     )
                 )
                 Text(
-                    text = "${chapter.completionPercentage}%",
+                    text = "40%",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold
@@ -804,7 +792,7 @@ private fun ContinueLearningCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "${chapter.completedTopics} / ${chapter.totalTopics} topics completed",
+                text = "3 / ${chapter.topics.size} topics completed",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF94A3B8),
                     fontSize = 12.sp
@@ -814,7 +802,7 @@ private fun ContinueLearningCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             LinearProgressIndicator(
-                progress = { (chapter.completionPercentage / 100f).coerceIn(0f, 1f) },
+                progress = { 0.4f },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)

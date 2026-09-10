@@ -83,17 +83,17 @@ fun LearningAnalyticsScreen(
 
     val testsCount = quizAttempts.size
 
-    val easyAttempts = allQuestionAttempts.filter { it.questionId.contains("easy", ignoreCase = true) }
+    val easyAttempts = allQuestionAttempts.filter { it.quizType == "PRACTICE" }
     val easyAccuracy = if (easyAttempts.isNotEmpty()) {
         ((easyAttempts.count { it.isCorrect }.toFloat() / easyAttempts.size) * 100).toInt()
     } else 85
 
-    val medAttempts = allQuestionAttempts.filter { !it.questionId.contains("easy", ignoreCase = true) && !it.questionId.contains("hard", ignoreCase = true) }
+    val medAttempts = allQuestionAttempts.filter { it.quizType == "AI_QUIZ" }
     val medAccuracy = if (medAttempts.isNotEmpty()) {
         ((medAttempts.count { it.isCorrect }.toFloat() / medAttempts.size) * 100).toInt()
     } else 72
 
-    val hardAttempts = allQuestionAttempts.filter { it.questionId.contains("hard", ignoreCase = true) }
+    val hardAttempts = allQuestionAttempts.filter { it.quizType == "PYQ" }
     val hardAccuracy = if (hardAttempts.isNotEmpty()) {
         ((hardAttempts.count { it.isCorrect }.toFloat() / hardAttempts.size) * 100).toInt()
     } else 58

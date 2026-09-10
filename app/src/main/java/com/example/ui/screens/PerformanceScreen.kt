@@ -955,7 +955,7 @@ fun PerformanceScreen(
 
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "${topic.subjectId} • ${topic.correctAttempts} correct out of ${topic.totalAttempts} attempts",
+                                            text = "${topic.subjectName} • ${topic.correctAttempts} correct out of ${topic.totalAttempts} attempts",
                                             fontSize = 11.sp,
                                             color = Color(0xFF94A3B8)
                                         )
@@ -969,7 +969,7 @@ fun PerformanceScreen(
                                             OutlinedButton(
                                                 onClick = {
                                                     schedulePrefillTopic = topic.topicName
-                                                    schedulePrefillSubject = topic.subjectId.lowercase().replaceFirstChar { it.uppercase() }
+                                                    schedulePrefillSubject = topic.subjectName
                                                     showScheduleDialog = true
                                                 },
                                                 modifier = Modifier.weight(1f),
@@ -1066,20 +1066,20 @@ fun PerformanceScreen(
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Column {
                                                 Text(qz.chapterName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                                Text("${qz.subjectId} Quiz", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                                Text("${qz.subjectName} Quiz", fontSize = 11.sp, color = Color(0xFF94A3B8))
                                             }
                                         }
 
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Surface(
-                                                color = (if (qz.accuracy >= 70) EmeraldSuccess else RoseError).copy(alpha = 0.15f),
+                                                color = (if (qz.scorePercentage >= 70) EmeraldSuccess else RoseError).copy(alpha = 0.15f),
                                                 shape = RoundedCornerShape(6.dp)
                                             ) {
                                                 Text(
-                                                    text = "${qz.accuracy}%",
+                                                    text = "${qz.scorePercentage}%",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (qz.accuracy >= 70) EmeraldSuccess else RoseError,
+                                                    color = if (qz.scorePercentage >= 70) EmeraldSuccess else RoseError,
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }

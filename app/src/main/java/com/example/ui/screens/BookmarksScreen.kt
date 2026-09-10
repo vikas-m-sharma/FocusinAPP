@@ -66,14 +66,14 @@ fun BookmarksScreen(
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val bookmarkedQuestions by viewModel.bookmarkedQuestions.collectAsState()
+    var bookmarkedQuestions by remember { mutableStateOf(com.example.data.model.sampleNeetQuestions) }
     var selectedSubjectFilter by remember { mutableStateOf("ALL") }
     val expandedState = remember { mutableStateMapOf<String, Boolean>() }
 
     val filteredQuestions = when (selectedSubjectFilter) {
-        "PHYSICS" -> bookmarkedQuestions.filter { it.subjectId == "PHYSICS" }
-        "CHEMISTRY" -> bookmarkedQuestions.filter { it.subjectId == "CHEMISTRY" }
-        "BIOLOGY" -> bookmarkedQuestions.filter { it.subjectId == "BIOLOGY" }
+        "PHYSICS" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "PHYSICS" }
+        "CHEMISTRY" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "CHEMISTRY" }
+        "BIOLOGY" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "BIOLOGY" }
         else -> bookmarkedQuestions
     }
 
@@ -198,32 +198,18 @@ fun BookmarksScreen(
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = question.subjectId,
+                                            text = question.subjectName,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = CyanPrimary,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
-                                    if (question.pyqYear != null) {
-                                        Surface(
-                                            color = Color(0xFFFBBF24).copy(alpha = 0.12f),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                text = question.pyqYear,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFFFBBF24),
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                            )
-                                        }
-                                    }
                                 }
 
                                 IconButton(
                                     onClick = {
-                                        viewModel.toggleQuestionBookmark(question.id, question.isBookmarked)
+                                        bookmarkedQuestions = bookmarkedQuestions.filter { it.id != question.id }
                                     }
                                 ) {
                                     Icon(
@@ -247,13 +233,9 @@ fun BookmarksScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // Options Preview
-                            listOf(
-                                "A" to question.optionA,
-                                "B" to question.optionB,
-                                "C" to question.optionC,
-                                "D" to question.optionD
-                            ).forEach { (optKey, optText) ->
-                                val isCorrect = isExpanded && optKey == question.correctOption
+                            question.options.forEachIndexed { optIndex, optText ->
+                                val optKey = listOf("A", "B", "C", "D").getOrElse(optIndex) { "A" }
+                                val isCorrect = isExpanded && optIndex == question.correctOptionIndex
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()

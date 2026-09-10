@@ -76,7 +76,7 @@ fun PreviousYearPapersScreen(
     onSolvePaper: (String) -> Unit, // passes year, e.g. "NEET 2024"
     onNavigateToChapterPyq: (String) -> Unit
 ) {
-    val neetChapters by viewModel.neetChapters.collectAsState()
+    val sampleChapter = com.example.data.model.neetPhysicsChapters.firstOrNull()
     var selectedFilterYear by remember { mutableStateOf("ALL") }
 
     val papers = listOf(
@@ -192,7 +192,6 @@ fun PreviousYearPapersScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        val sampleChapter = neetChapters.firstOrNull()
                         Button(
                             onClick = {
                                 if (sampleChapter != null) {
