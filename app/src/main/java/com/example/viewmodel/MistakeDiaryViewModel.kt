@@ -92,67 +92,7 @@ class MistakeDiaryViewModel(
         initialValue = MistakeDiaryUiState(isLoading = true)
     )
 
-    init {
-        // Pre-populate initial high-yield mistakes if Room table is empty on first launch
-        viewModelScope.launch {
-            repository.allMistakes.collect { list ->
-                if (list.isEmpty()) {
-                    seedDefaultMistakes()
-                }
-            }
-        }
-    }
-
-    private suspend fun seedDefaultMistakes() {
-        val defaultMistakes = listOf(
-            MistakeEntity(
-                id = "seed_genetics_1",
-                questionId = "q_genetics_101",
-                testTitle = "NEET 2024 Full Mock 1",
-                questionText = "In Mendelian dihybrid cross (RrYy x RrYy), what fraction of F2 progeny are recombinant phenotypes?",
-                selectedOption = "9/16",
-                correctOption = "6/16 (Round Green + Wrinkled Yellow)",
-                optionsJson = "9/16|||6/16 (Round Green + Wrinkled Yellow)|||1/16|||7/16",
-                explanation = "Recombinant phenotypes are round green (3/16) and wrinkled yellow (3/16), yielding total 6/16.",
-                subjectName = "Biology",
-                topicName = "Principles of Inheritance",
-                errorReason = MistakeReason.MISREAD_QUESTION.name,
-                studentNotes = "Read recombinant as total phenotypic ratio by mistake! Remember 9+1 are parental, 3+3 are recombinant.",
-                timestamp = System.currentTimeMillis() - 3600000
-            ),
-            MistakeEntity(
-                id = "seed_physics_1",
-                questionId = "q_physics_102",
-                testTitle = "NEET 2023 Paper",
-                questionText = "A body starts from rest with uniform acceleration 'a'. Ratio of distance traveled in the 5th second to total distance in 5 seconds is:",
-                selectedOption = "1/5",
-                correctOption = "9/25",
-                optionsJson = "9/25|||1/5|||11/25|||1/25",
-                explanation = "Distance in nth second is S_nth = u + a/2(2n-1). S_5th = a/2(9). Total distance in 5s S = 1/2 * a * (25). Ratio = 9/25.",
-                subjectName = "Physics",
-                topicName = "Motion in a Straight Line",
-                errorReason = MistakeReason.FORMULA_FORGOT.name,
-                studentNotes = "Forgot the n-th second distance formula u + a/2(2n-1)!",
-                timestamp = System.currentTimeMillis() - 7200000
-            ),
-            MistakeEntity(
-                id = "seed_chemistry_1",
-                questionId = "q_chem_103",
-                testTitle = "High Yield Chemistry Mock",
-                questionText = "Which of the following compounds will undergo Cannizzaro reaction when treated with concentrated NaOH?",
-                selectedOption = "Acetaldehyde (CH3CHO)",
-                correctOption = "Benzaldehyde (C6H5CHO)",
-                optionsJson = "Acetaldehyde (CH3CHO)|||Benzaldehyde (C6H5CHO)|||Acetone (CH3COCH3)|||Propionaldehyde (CH3CH2CHO)",
-                explanation = "Cannizzaro reaction is given only by aldehydes having NO alpha-hydrogen atoms. Benzaldehyde has no alpha-H.",
-                subjectName = "Chemistry",
-                topicName = "Aldehydes & Ketones",
-                errorReason = MistakeReason.CONCEPT_GAP.name,
-                studentNotes = "Cannizzaro requires NO alpha-H. Aldol requires presence of alpha-H.",
-                timestamp = System.currentTimeMillis() - 10800000
-            )
-        )
-        repository.insertMistakes(defaultMistakes)
-    }
+    // Initially empty. Mistakes are automatically added when student attempts question papers and makes errors.
 
     /**
      * Automatically called after any test submission to log wrong questions into Room database

@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.MistakeEntity
@@ -334,17 +335,38 @@ fun MistakeDiaryScreen(
             // List of Mistakes
             if (uiState.filteredMistakes.isEmpty()) {
                 item {
-                    Box(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 40.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Slate800)
                     ) {
-                        Text(
-                            text = if (uiState.unresolvedCount == 0) "Zero unresolved mistakes! Excellent preparation! 🎉" else "No mistakes match this filter.",
-                            color = Color(0xFF64748B),
-                            fontSize = 14.sp
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "📖 Mistake Diary is Empty",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (uiState.totalMistakesCount == 0)
+                                    "Attempt official NEET question papers or chapter tests. Any incorrect answers will automatically be collected here for review and targeted re-testing!"
+                                else
+                                    "No mistakes match the selected subject or error tag filter.",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 19.sp
+                            )
+                        }
                     }
                 }
             } else {
