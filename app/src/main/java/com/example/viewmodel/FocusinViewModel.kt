@@ -23,9 +23,7 @@ import com.example.data.local.entity.AchievementEntity
 import com.example.data.local.entity.ChapterProgressEntity
 import com.example.data.local.entity.DailyStatsEntity
 import com.example.data.local.entity.FocusSessionRecordEntity
-import com.example.data.local.entity.QuestionAttemptEntity
 import com.example.data.local.entity.QuestionAttemptRecordEntity
-import com.example.data.local.entity.QuizAttemptEntity
 import com.example.data.local.entity.QuizAttemptRecordEntity
 import com.example.data.local.entity.SubjectEntity
 import com.example.data.local.entity.TimetableSessionEntity
@@ -42,10 +40,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-<<<<<<< HEAD
-=======
 import kotlinx.coroutines.flow.flow
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -57,15 +52,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-data class WeakTopicInfo(
-    val topicName: String = "",
-    val chapterId: String = "",
-    val subjectId: String = "PHYSICS",
-    val accuracy: Int = 0,
-    val totalAttempts: Int = 0,
-    val correctAttempts: Int = 0
-)
-
 class FocusinViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
@@ -73,6 +59,9 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     val voiceRecorderManager = VoiceRecorderManager(application)
     private val geminiService = GeminiFocusinService()
     val authManager = AuthManager(application)
+    private val authPrefs = application.getSharedPreferences("focusin_auth_session", Context.MODE_PRIVATE)
+    private val _isUserLoggedIn = MutableStateFlow(authPrefs.getBoolean("is_logged_in", false))
+    val isUserLoggedIn: StateFlow<Boolean> = _isUserLoggedIn.asStateFlow()
 
     val authState: StateFlow<AuthState> = authManager.authState
 
@@ -126,176 +115,6 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     val quizAttemptsList: StateFlow<List<QuizAttemptRecordEntity>> = repository.allQuizAttempts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-<<<<<<< HEAD
-    val neetChapters = repository.allChapters.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val allQuestions = repository.allQuestions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val bookmarkedQuestions = repository.bookmarkedQuestions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val featuredResources = repository.featuredResources.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val totalQuestionsAttempted = questionAttemptsList.map { it.size }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val totalQuestionsCorrect = questionAttemptsList.map { attempts -> attempts.count { it.isCorrect } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val lastActiveChapter = neetChapters.map { chapters -> chapters.firstOrNull { it.attemptedQuestions > 0 } ?: chapters.firstOrNull() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    val recentMonthStats = repository.recentWeekStats.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val recentYearStats = repository.recentWeekStats.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val allQuizAttempts = quizAttemptsList
-    val allQuestionAttempts = questionAttemptsList
-
-    val calculatedWeakTopics: StateFlow<List<WeakTopicInfo>> = questionAttemptsList.map { attempts ->
-        val grouped = attempts.groupBy { it.topicName.ifBlank { it.chapterName } }
-        grouped.map { (topic, list) ->
-            val total = list.size
-            val correct = list.count { it.isCorrect }
-            val acc = if (total > 0) (correct * 100 / total) else 0
-            WeakTopicInfo(
-                topicName = topic,
-                chapterId = list.firstOrNull()?.chapterName ?: "",
-                subjectId = list.firstOrNull()?.subjectName ?: "PHYSICS",
-                accuracy = acc,
-                totalAttempts = total,
-                correctAttempts = correct
-            )
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun signInWithGoogleCredential(activityContext: Context, customClientId: String? = null) {
-        viewModelScope.launch {
-            authManager.signInWithGoogleCredential(activityContext, customClientId)
-        }
-    }
-
-    fun connectGoogleProfile(name: String, email: String) {
-        authManager.connectVerifiedGoogleProfile(name, email)
-        signInWithGoogle(name, email)
-    }
-
-    fun getChapterFlow(chapterId: String) = repository.getChapterFlow(chapterId)
-    fun getChaptersBySubject(subjectId: String) = repository.getChaptersBySubject(subjectId)
-    fun getChaptersBySubject(examId: String, subjectId: String) = repository.getChaptersBySubject(subjectId)
-    fun getTopicsForChapter(chapterId: String) = repository.getTopicsForChapter(chapterId)
-    fun getResourcesForChapter(chapterId: String) = repository.getResourcesForChapter(chapterId)
-    fun getQuestionsForChapter(chapterId: String) = repository.getQuestionsForChapter(chapterId)
-    fun getAttemptsForChapter(chapterId: String) = repository.getAttemptsForChapter(chapterId)
-
-    fun getQuizAttemptById(id: Long): Flow<QuizAttemptRecordEntity?> = quizAttemptsList.map { list ->
-        list.firstOrNull { it.id == id }
-    }
-
-    fun recordQuestionAttempt(
-        questionId: String = "",
-        chapterId: String = "",
-        subjectId: String = "",
-        topicName: String = "",
-        selectedOption: String = "",
-        isCorrect: Boolean = false,
-        timeTakenSeconds: Int = 30,
-        attempt: QuestionAttemptEntity? = null
-    ) {
-        viewModelScope.launch {
-            if (attempt != null) {
-                repository.recordQuestionAttempt(attempt)
-            } else {
-                repository.recordQuestionAttempt(
-                    QuestionAttemptEntity(
-                        questionId = questionId,
-                        chapterId = chapterId,
-                        subjectId = subjectId,
-                        topicName = topicName,
-                        selectedOption = selectedOption,
-                        isCorrect = isCorrect,
-                        timeTakenSeconds = timeTakenSeconds
-                    )
-                )
-            }
-        }
-    }
-
-    fun recordQuizAttempt(
-        examId: String = "NEET",
-        subjectId: String = "",
-        chapterId: String = "",
-        chapterName: String = "",
-        totalQuestions: Int = 0,
-        correctAnswers: Int = 0,
-        timeTakenSeconds: Int = 0,
-        mode: String = "PRACTICE",
-        strongTopics: List<String> = emptyList(),
-        weakTopics: List<String> = emptyList(),
-        attempt: QuizAttemptEntity? = null
-    ) {
-        viewModelScope.launch {
-            if (attempt != null) {
-                repository.recordQuizAttempt(attempt)
-            } else {
-                repository.recordQuizAttempt(
-                    QuizAttemptEntity(
-                        examId = examId,
-                        subjectId = subjectId,
-                        chapterId = chapterId,
-                        chapterName = chapterName,
-                        totalQuestions = totalQuestions,
-                        correctAnswers = correctAnswers,
-                        timeTakenSeconds = timeTakenSeconds,
-                        mode = mode,
-                        strongTopicsJson = JSONArray(strongTopics).toString(),
-                        weakTopicsJson = JSONArray(weakTopics).toString()
-                    )
-                )
-            }
-        }
-    }
-
-    fun toggleQuestionBookmark(questionId: String, isBookmarked: Boolean) {
-        viewModelScope.launch { repository.toggleQuestionBookmark(questionId, isBookmarked) }
-    }
-
-    fun updateTopicStatus(topicId: String, status: String, chapterId: String = "") {
-        viewModelScope.launch { repository.updateTopicStatus(topicId, status) }
-    }
-
-    fun scheduleLearningSession(
-        subjectId: Any = 1L,
-        subjectName: String = "Physics",
-        topicName: String = "",
-        dayOfWeek: Int = 1,
-        startTime: String = "18:00",
-        endTime: String = "19:00",
-        durationMinutes: Int = 60,
-        focusModeEnabled: Boolean = true,
-        alarmEnabled: Boolean = true,
-        protectionLevel: String = "HIGH",
-        focusProtection: Boolean = true,
-        startAlarm: Boolean = true,
-        chapterId: String = ""
-    ) {
-        val sId = when (subjectId) {
-            is Long -> subjectId
-            is Number -> subjectId.toLong()
-            else -> 1L
-        }
-        val sName = if (subjectName.isNotBlank()) subjectName else subjectId.toString()
-        viewModelScope.launch {
-            repository.insertTimetableSession(
-                TimetableSessionEntity(
-                    dayOfWeek = dayOfWeek,
-                    subjectId = sId,
-                    subjectName = sName,
-                    taskName = "Revision: $topicName",
-                    startTime = startTime,
-                    endTime = endTime,
-                    durationMinutes = durationMinutes,
-                    colorHex = "#38BDF8"
-                )
-            )
-        }
-    }
-
-    fun addRevisionToSchedule(subjectId: Any = 1L, topicName: String = "", chapterName: String = "") {
-        scheduleLearningSession(subjectId = subjectId, topicName = topicName.ifBlank { chapterName })
-    }
-
-=======
     val allQuestionAttempts: StateFlow<List<QuestionAttemptRecordEntity>> = questionAttemptsList
     val allQuizAttempts: StateFlow<List<QuizAttemptRecordEntity>> = quizAttemptsList
     val allChapterProgress: StateFlow<List<ChapterProgressEntity>> = chapterProgressList
@@ -328,7 +147,6 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
     val activeSessionState: StateFlow<ActiveSessionState> = FocusSessionService.sessionState
 
     // Timetable selected day (1=Mon..7=Sun)
@@ -436,7 +254,10 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             repository.initializeDefaultDataIfNeeded()
-            authManager.continueAsLocalUser("Scholar")
+            if (authPrefs.getBoolean("is_logged_in", false)) {
+                val savedName = authPrefs.getString("displayName", "Scholar") ?: "Scholar"
+                authManager.continueAsLocalUser(savedName)
+            }
         }
 
         // Live clock ticker
@@ -1096,32 +917,48 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun signInWithGoogle(name: String, email: String) {
-        authManager.mockSignInGoogle(name, email)
+        loginUser(name = name, email = email, exam = "NEET", isGoogle = true)
+    }
+
+    fun loginUser(name: String, email: String, exam: String = "NEET", isGoogle: Boolean = false) {
+        authPrefs.edit()
+            .putBoolean("is_logged_in", true)
+            .putString("displayName", name)
+            .putString("email", email)
+            .putString("exam", exam)
+            .apply()
+        _isUserLoggedIn.value = true
+
         viewModelScope.launch {
+            repository.initializeDefaultDataIfNeeded()
             val current = repository.getUserSettingsSync()
             val formattedName = if (name.isNotBlank()) name else "Scholar"
             repository.updateUserSettings(
                 current.copy(
                     userName = formattedName,
-                    userEmail = email,
-                    isGoogleSignedIn = true,
+                    userEmail = email.ifBlank { null },
+                    userGoals = exam,
+                    isGoogleSignedIn = isGoogle,
                     isOnboardingComplete = true
                 )
             )
-            // Trigger AI assistant greeting on Google Sign In
+            if (isGoogle) {
+                authManager.connectVerifiedGoogleProfile(formattedName, email)
+            } else {
+                authManager.continueAsLocalUser(formattedName)
+            }
             speakAiGreeting(formattedName)
         }
     }
 
-<<<<<<< HEAD
-    fun signOutGoogle(context: Context? = null) {
-        viewModelScope.launch {
-            authManager.signOut()
-=======
-    fun signOutGoogle(activityContext: Context? = null) {
+    fun logoutUser(activityContext: Context? = null) {
+        authPrefs.edit()
+            .putBoolean("is_logged_in", false)
+            .apply()
+        _isUserLoggedIn.value = false
+
         viewModelScope.launch {
             authManager.signOut(activityContext)
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
             val current = repository.getUserSettingsSync()
             repository.updateUserSettings(
                 current.copy(
@@ -1130,6 +967,10 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
                 )
             )
         }
+    }
+
+    fun signOutGoogle(activityContext: Context? = null) {
+        logoutUser(activityContext)
     }
 
     fun getQuizAttemptById(id: Long): Flow<QuizAttemptRecordEntity?> {
@@ -1179,6 +1020,12 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     fun seedDemoData() {
         viewModelScope.launch {
             repository.seedDemoData()
+        }
+    }
+
+    fun ensureDefaultDataSeeded() {
+        viewModelScope.launch {
+            repository.initializeDefaultDataIfNeeded()
         }
     }
 

@@ -28,7 +28,42 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Settings : Screen("settings", "Settings")
     object Subjects : Screen("subjects", "Subjects")
     object VoiceStudio : Screen("voice_studio", "Voice Studio")
+    object Login : Screen("login", "Sign In")
     object Onboarding : Screen("onboarding", "Welcome")
+    object SubjectChapters : Screen("subject_chapters/{subjectId}", "Subject Chapters") {
+        fun createRoute(subjectId: String) = "subject_chapters/$subjectId"
+    }
+    object ChapterDetail : Screen("chapter_detail/{chapterId}", "Chapter") {
+        fun createRoute(chapterId: String) = "chapter_detail/$chapterId"
+    }
+    object ChapterOptions : Screen("chapter_options/{chapterId}", "Chapter Options") {
+        fun createRoute(chapterId: String) = "chapter_options/$chapterId"
+    }
+    object ChapterPractice : Screen("chapter_practice/{chapterId}/{mode}", "Chapter Practice") {
+        fun createRoute(chapterId: String, mode: String = "topic") = "chapter_practice/$chapterId/$mode"
+    }
+    object PreviousYearPapers : Screen("previous_year_papers", "Previous Year Papers")
+    object AiQuizGenerator : Screen("ai_quiz_generator/{chapterId}", "AI Quiz Generator") {
+        fun createRoute(chapterId: String = "neet_phy_current_electricity") = "ai_quiz_generator/$chapterId"
+    }
+    object MockTest : Screen("mock_test/{testTitle}", "Mock Test") {
+        fun createRoute(testTitle: String = "NEET Full Syllabus Test 1") = "mock_test/$testTitle"
+    }
+    object MyPractice : Screen("my_practice", "My Practice")
+    object Bookmarks : Screen("bookmarks", "Bookmarks")
+    object WeakTopics : Screen("weak_topics", "Weak Topics")
+    object TestResults : Screen("test_results/{quizId}", "Test Results") {
+        fun createRoute(quizId: Long) = "test_results/$quizId"
+    }
+    object FocusAnalytics : Screen("focus_analytics", "Focus Analytics")
+    object LearningAnalytics : Screen("learning_analytics", "Learning Analytics")
+    object SubjectPerformance : Screen("subject_performance/{subjectName}", "Subject Performance") {
+        fun createRoute(subjectName: String = "Physics") = "subject_performance/$subjectName"
+    }
+    object RecentActivity : Screen("recent_activity", "Recent Activity")
+    object ProgressComparison : Screen("progress_comparison", "Progress Comparison")
+    object GoalsAndInsights : Screen("goals_and_insights", "Goals & Insights")
+    object AiPerformanceCoach : Screen("ai_performance_coach", "AI Performance Coach")
 
     companion object {
         val Timetable = Schedule

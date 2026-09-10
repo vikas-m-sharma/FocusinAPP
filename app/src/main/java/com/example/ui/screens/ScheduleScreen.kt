@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,21 +29,32 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
@@ -59,6 +71,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -120,9 +133,18 @@ fun ScheduleScreen(
     val allSessions by viewModel.allSessions.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
     val voiceRecordings by viewModel.voiceRecordings.collectAsState()
+    val userSettings by viewModel.userSettings.collectAsState()
+    val activeSessionState by viewModel.activeSessionState.collectAsState()
     val isAiGenerating by viewModel.isAiGenerating.collectAsState()
     val aiGeneratedPlan by viewModel.aiGeneratedTimetable.collectAsState()
     val aiGoalPlan by viewModel.aiGoalPlan.collectAsState()
+
+    // Ensure initial schedule is seeded if sessions are empty
+    androidx.compose.runtime.LaunchedEffect(allSessions.size) {
+        if (allSessions.isEmpty()) {
+            viewModel.ensureDefaultDataSeeded()
+        }
+    }
 
     val daySessions = allSessions.filter { it.dayOfWeek == selectedDay }
 
@@ -131,16 +153,49 @@ fun ScheduleScreen(
     var sessionToDuplicate by remember { mutableStateOf<TimetableSessionEntity?>(null) }
     var showAiGeneratorDialog by remember { mutableStateOf(false) }
     var showGoalPlannerDialog by remember { mutableStateOf(false) }
+    var showBlockedAppsDialog by remember { mutableStateOf(false) }
 
-    val daysOfWeek = listOf(
-        Pair(1, "Monday"),
-        Pair(2, "Tuesday"),
-        Pair(3, "Wednesday"),
-        Pair(4, "Thursday"),
-        Pair(5, "Friday"),
-        Pair(6, "Saturday"),
-        Pair(7, "Sunday")
-    )
+    // Calculate current week dates (Mon - Sun)
+    val calendar = Calendar.getInstance()
+    val currentDayOfWeek = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7 + 1 // 1=Mon .. 7=Sun
+    val weekCalendar = Calendar.getInstance().apply {
+        add(Calendar.DAY_OF_YEAR, -(currentDayOfWeek - 1))
+    }
+
+    val weekDays = remember(calendar.get(Calendar.DAY_OF_YEAR)) {
+        (1..7).map { dayNum ->
+            val cal = (weekCalendar.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_YEAR, dayNum - 1)
+            }
+            val name = when (dayNum) {
+                1 -> "Mon"; 2 -> "Tue"; 3 -> "Wed"; 4 -> "Thu"; 5 -> "Fri"; 6 -> "Sat"; else -> "Sun"
+            }
+            WeekDayData(
+                dayNum = dayNum,
+                dayName = name,
+                dateNumber = cal.get(Calendar.DAY_OF_MONTH),
+                monthName = cal.getDisplayName(Calendar.MONTH, Calendar.SHORT, Locale.getDefault()) ?: "Jul",
+                year = cal.get(Calendar.YEAR),
+                isToday = dayNum == currentDayOfWeek
+            )
+        }
+    }
+
+    val selectedDayData = weekDays.firstOrNull { it.dayNum == selectedDay } ?: weekDays.first()
+
+    // Parse blocked apps
+    val blockedAppsList = remember(userSettings?.blockedAppsJson) {
+        try {
+            val jsonArr = JSONArray(userSettings?.blockedAppsJson ?: "[]")
+            val list = mutableListOf<String>()
+            for (i in 0 until jsonArr.length()) {
+                list.add(jsonArr.getString(i))
+            }
+            list.ifEmpty { listOf("Instagram", "TikTok", "YouTube", "Twitter", "Facebook", "Snapchat", "Netflix", "Reddit") }
+        } catch (_: Exception) {
+            listOf("Instagram", "TikTok", "YouTube", "Twitter", "Facebook", "Snapchat", "Netflix", "Reddit")
+        }
+    }
 
     Scaffold(
         containerColor = Slate950,
@@ -154,27 +209,28 @@ fun ScheduleScreen(
                     Column {
                         Text(
                             text = "Schedule",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Plan your time. Protect your focus.",
+                            text = "Plan your time. Stay consistent.",
                             fontSize = 12.sp,
                             color = Color(0xFF94A3B8)
                         )
                     }
                 },
                 actions = {
-                    // AI Actions
+                    // Calendar icon
                     IconButton(
                         onClick = { showAiGeneratorDialog = true },
-                        modifier = Modifier.testTag("ai_schedule_button")
+                        modifier = Modifier.testTag("calendar_schedule_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "Create Schedule with AI",
-                            tint = CyanPrimary
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Calendar",
+                            tint = Color(0xFF94A3B8)
                         )
                     }
                     // Settings shortcut
@@ -207,124 +263,234 @@ fun ScheduleScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 90.dp)
         ) {
-            // Horizontal Day Selector
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                items(daysOfWeek) { (dayNum, dayName) ->
-                    val isSelected = selectedDay == dayNum
-                    val sessionCount = allSessions.count { it.dayOfWeek == dayNum }
-
-                    Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { viewModel.selectDay(dayNum) }
-                            .testTag("day_selector_$dayNum"),
-                        color = if (isSelected) CyanPrimary else Slate900,
-                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Slate800),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+            // 1. Horizontal Date Selector (Mon - Sun)
+            item {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    items(weekDays) { dayInfo ->
+                        val isSelected = selectedDay == dayInfo.dayNum
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { viewModel.selectDay(dayInfo.dayNum) }
+                                .testTag("day_selector_${dayInfo.dayNum}"),
+                            color = if (isSelected) CyanPrimary else Slate900,
+                            border = if (isSelected) null else BorderStroke(1.dp, Slate800),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text(
-                                text = dayName.take(3).uppercase(),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Slate950 else Color(0xFF94A3B8)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "$sessionCount sess",
-                                fontSize = 10.sp,
-                                color = if (isSelected) Slate950.copy(alpha = 0.8f) else Color(0xFF64748B)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .widthIn(min = 52.dp)
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = dayInfo.dayName,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Slate950 else Color(0xFF94A3B8)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${dayInfo.dateNumber}",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Slate950 else Color.White
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Sessions List or Empty State
-            if (daySessions.isEmpty()) {
-                Box(
+            // 2. Daily Progress Card
+            item {
+                val completedCount = daySessions.count { it.isCompleted }
+                val totalCount = daySessions.size
+                val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
+                val percent = (progress * 100).toInt()
+
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 60.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    border = BorderStroke(1.dp, Slate800)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(32.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = if (selectedDayData.isToday) "Today" else selectedDayData.dayName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyanPrimary
+                            )
+                            Text(
+                                text = "${selectedDayData.dayName}, ${selectedDayData.dateNumber} ${selectedDayData.monthName} ${selectedDayData.year}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "$completedCount / $totalCount sessions",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF94A3B8)
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .width(100.dp)
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = EmeraldSuccess,
+                                    trackColor = Slate800
+                                )
+                                Text(
+                                    text = "$percent%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // 3. Timeline Sessions List
+            if (daySessions.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        border = BorderStroke(1.dp, Slate800)
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .size(72.dp)
-                                .clip(CircleShape)
-                                .background(Slate900),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
                                 tint = CyanPrimary,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(32.dp)
                             )
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Your day is still open",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Create your first focus session to protect your study time.",
-                            fontSize = 14.sp,
-                            color = Color(0xFF94A3B8),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Button(
-                            onClick = { showCreateDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("empty_create_session_btn")
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, tint = Slate950, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Create Session", color = Slate950, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "No sessions planned for ${selectedDayData.dayName}",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tap below to add a focus session.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { showCreateDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Slate950, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Add Session", color = Slate950, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(daySessions, key = { it.id }) { session ->
-                        ScheduleSessionCard(
-                            session = session,
-                            onStart = { onStartSession(session) },
-                            onEdit = { sessionToEdit = session },
-                            onDelete = { viewModel.deleteSession(session) },
-                            onDuplicate = { sessionToDuplicate = session },
-                            onToggleEnabled = { viewModel.toggleSessionEnabled(session) },
-                            onTestAlarm = { viewModel.testTriggerAlarmNow(session) }
-                        )
-                    }
+                val firstIncompleteSessionId = daySessions.firstOrNull { !it.isCompleted }?.id
+
+                itemsIndexed(daySessions, key = { _, session -> session.id }) { index, session ->
+                    val isCompleted = session.isCompleted
+                    val isNow = !isCompleted && (
+                        (activeSessionState.isActive && activeSessionState.subjectName == session.subjectName) ||
+                        session.id == firstIncompleteSessionId
+                    )
+
+                    TimelineSessionRow(
+                        session = session,
+                        isCompleted = isCompleted,
+                        isNow = isNow,
+                        isFirst = index == 0,
+                        isLast = index == daySessions.lastIndex,
+                        onToggleComplete = {
+                            viewModel.updateSession(session.copy(isCompleted = !session.isCompleted))
+                        },
+                        onStart = { onStartSession(session) },
+                        onClick = { sessionToEdit = session }
+                    )
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // 4. Focus Protection Card
+            item {
+                FocusProtectionSectionCard(
+                    currentLevel = userSettings?.focusProtectionLevel ?: "STRICT",
+                    onSelectLevel = { level ->
+                        userSettings?.let { settings ->
+                            viewModel.updateSettings(settings.copy(focusProtectionLevel = level))
+                        }
+                    },
+                    onClick = onNavigateToSettings
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // 5. Blocked Apps Card
+            item {
+                BlockedAppsSectionCard(
+                    count = blockedAppsList.size.coerceAtLeast(8),
+                    onClick = { showBlockedAppsDialog = true }
+                )
             }
         }
     }
@@ -395,6 +561,609 @@ fun ScheduleScreen(
             }
         )
     }
+
+    // BLOCKED APPS DIALOG
+    if (showBlockedAppsDialog) {
+        BlockedAppsSelectionDialog(
+            currentlyBlocked = blockedAppsList,
+            onDismiss = { showBlockedAppsDialog = false },
+            onSave = { updatedList ->
+                userSettings?.let { settings ->
+                    val json = JSONArray(updatedList).toString()
+                    viewModel.updateSettings(settings.copy(blockedAppsJson = json))
+                }
+                showBlockedAppsDialog = false
+            },
+            onOpenSettings = {
+                showBlockedAppsDialog = false
+                onNavigateToSettings()
+            }
+        )
+    }
+}
+
+data class WeekDayData(
+    val dayNum: Int,
+    val dayName: String,
+    val dateNumber: Int,
+    val monthName: String,
+    val year: Int,
+    val isToday: Boolean
+)
+
+fun formatDisplayTime(timeStr: String): String {
+    val parts = timeStr.trim().split(":")
+    if (parts.size != 2) return timeStr
+    val hour = parts[0].toIntOrNull() ?: return timeStr
+    val minute = parts[1]
+    val displayHour = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return String.format(Locale.US, "%02d:%s", displayHour, minute)
+}
+
+@Composable
+fun TimelineSessionRow(
+    session: TimetableSessionEntity,
+    isCompleted: Boolean,
+    isNow: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onToggleComplete: () -> Unit,
+    onStart: () -> Unit,
+    onClick: () -> Unit
+) {
+    val subjectLower = session.subjectName.lowercase()
+    val (subjectIcon, subjectColor) = when {
+        subjectLower.contains("bio") -> Pair(Icons.Default.Eco, Color(0xFF22C55E))
+        subjectLower.contains("chem") -> Pair(Icons.Default.Science, Color(0xFF06B6D4))
+        subjectLower.contains("phys") -> Pair(Icons.Default.AutoAwesome, Color(0xFFA855F7))
+        subjectLower.contains("mock") || subjectLower.contains("test") -> Pair(Icons.Default.Description, Color(0xFFEF4444))
+        subjectLower.contains("rev") || subjectLower.contains("note") -> Pair(Icons.Default.Edit, Color(0xFFF59E0B))
+        subjectLower.contains("read") || subjectLower.contains("book") -> Pair(Icons.Default.MenuBook, Color(0xFF8B5CF6))
+        else -> {
+            val parsedColor = try {
+                Color(android.graphics.Color.parseColor(session.colorHex))
+            } catch (_: Exception) {
+                CyanPrimary
+            }
+            Pair(Icons.Default.School, parsedColor)
+        }
+    }
+
+    val dotColor = when {
+        isCompleted -> EmeraldSuccess
+        isNow -> CyanPrimary
+        else -> subjectColor
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // 1. Time Column
+        Column(
+            modifier = Modifier
+                .width(52.dp)
+                .padding(top = 14.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = formatDisplayTime(session.startTime),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "– ${formatDisplayTime(session.endTime)}",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color(0xFF94A3B8)
+            )
+        }
+
+        // 2. Timeline Line & Dot Column
+        Box(
+            modifier = Modifier
+                .width(22.dp)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            // Vertical connecting line
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(Color(0xFF1E293B))
+            )
+            // Circular dot
+            Box(
+                modifier = Modifier
+                    .padding(top = 18.dp)
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        // 3. Right Session Card
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .padding(bottom = 12.dp)
+                .clickable { onClick() }
+                .testTag("timeline_session_${session.id}"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Slate900),
+            border = if (isNow) BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.6f)) else BorderStroke(1.dp, Slate800)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Icon Box
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(subjectColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = subjectIcon,
+                        contentDescription = session.subjectName,
+                        tint = subjectColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = session.subjectName,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = session.taskName,
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (isNow) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF59E0B),
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "App Lock: Strict",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFF59E0B)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Reminder On",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Trailing Status Indicator
+                if (isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(EmeraldSuccess)
+                            .clickable { onToggleComplete() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Completed",
+                            tint = Slate950,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                } else if (isNow) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF0284C7),
+                        modifier = Modifier.clickable { onStart() }
+                    ) {
+                        Text(
+                            text = "Now",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .border(2.dp, Color(0xFF334155), CircleShape)
+                            .clickable { onToggleComplete() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FocusProtectionSectionCard(
+    currentLevel: String,
+    onSelectLevel: (String) -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Slate900),
+        border = BorderStroke(1.dp, Slate800)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(EmeraldSuccess.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = EmeraldSuccess,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Focus Protection",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "During study sessions, distracting apps will be blocked automatically.",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Standard", "Enhanced", "Strict").forEach { level ->
+                    val isSelected = currentLevel.equals(level, ignoreCase = true)
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onSelectLevel(level.uppercase()) }
+                            .testTag("focus_mode_$level"),
+                        color = if (isSelected) CyanPrimary else Slate950,
+                        border = if (isSelected) null else BorderStroke(1.dp, Slate800),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = level,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Slate950 else Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BlockedAppsSectionCard(
+    count: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable { onClick() }
+            .testTag("blocked_apps_card"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Slate900),
+        border = BorderStroke(1.dp, Slate800)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Apps,
+                contentDescription = null,
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Text(
+                text = "Blocked Apps ($count)",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Mini App Icons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Instagram
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.linearGradient(
+                                listOf(Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .border(1.2.dp, Color.White, CircleShape)
+                    )
+                }
+
+                // YouTube
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFFF0000)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+
+                // TikTok
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF000000)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = CyanPrimary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+
+                // Twitter/X
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF171717)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "𝕏",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                // Chrome
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1E293B)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(11.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF38BDF8)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFF64748B),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun BlockedAppsSelectionDialog(
+    currentlyBlocked: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    val allAvailableApps = listOf(
+        "Instagram", "YouTube", "TikTok", "Twitter",
+        "Facebook", "Snapchat", "Netflix", "Reddit",
+        "WhatsApp", "Telegram", "Discord", "Pinterest"
+    )
+    val selectedApps = remember {
+        androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(currentlyBlocked) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Slate900,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Apps, contentDescription = null, tint = CyanPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Blocked Apps (${selectedApps.size})", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Select distracting apps to block automatically during study sessions:",
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(allAvailableApps) { appName ->
+                        val isBlocked = selectedApps.contains(appName)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    if (isBlocked) selectedApps.remove(appName) else selectedApps.add(appName)
+                                },
+                            color = if (isBlocked) Slate800 else Slate950,
+                            border = BorderStroke(1.dp, if (isBlocked) CyanPrimary.copy(alpha = 0.5f) else Slate800),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(appName, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                androidx.compose.material3.Switch(
+                                    checked = isBlocked,
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedApps.add(appName) else selectedApps.remove(appName)
+                                    },
+                                    colors = androidx.compose.material3.SwitchDefaults.colors(
+                                        checkedThumbColor = Slate950,
+                                        checkedTrackColor = CyanPrimary
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selectedApps.toList()) },
+                colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Save", color = Slate950, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onOpenSettings) {
+                Text("More in Settings", color = Color(0xFF94A3B8))
+            }
+        }
+    )
 }
 
 @Composable

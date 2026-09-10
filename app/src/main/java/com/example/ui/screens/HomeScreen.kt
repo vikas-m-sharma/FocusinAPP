@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -95,6 +96,7 @@ import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.Slate950
+import com.example.service.ActiveSessionState
 import com.example.viewmodel.FocusinViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -176,13 +178,33 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Authenticated User Profile Avatar
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(CyanPrimary.copy(alpha = 0.2f))
+                            .border(1.dp, CyanPrimary.copy(alpha = 0.6f), CircleShape)
+                            .clickable { onNavigateToSettings() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.take(1).uppercase(),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyanPrimary
+                        )
+                    }
+
+                    // Settings Icon
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier.testTag("settings_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings and Profile",
+                            contentDescription = "Settings",
                             tint = Color(0xFF94A3B8)
                         )
                     }
@@ -196,9 +218,9 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // 1. DYNAMIC TIME-BASED GREETING & TODAY'S FOCUS
+            // 1. DYNAMIC TIME-BASED GREETING
             item {
                 val cal = Calendar.getInstance()
                 val hour = cal.get(Calendar.HOUR_OF_DAY)
@@ -209,196 +231,160 @@ fun HomeScreen(
                     else -> "Late Night Focus," to "✨"
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = timeGreeting,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         color = Color(0xFF94A3B8),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = "$userName $emoji",
-                        fontSize = 28.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
-                }
-            }
-
-            // 1.5. INTERACTIVE GEMINI AI ASSISTANT CARD
-            item {
-                AiAssistantHomeCard(
-                    userName = userName,
-                    aiMessage = aiMessage,
-                    isSpeaking = isAiSpeaking,
-                    isActive = isAiActive,
-                    isSocialLocked = isSocialLocked,
-                    onAutoSchedule = {
-                        viewModel.autoScheduleAndLockSocialApps(userName)
-                    },
-                    onStudyGuidance = {
-                        viewModel.provideStudyGuidanceAndStructure(userName)
-                    },
-                    onSendQuery = { query ->
-                        viewModel.sendUserQueryToGemini(query)
-                    },
-                    onStopAi = {
-                        viewModel.stopAiAssistant()
-                    }
-                )
-            }
-
-            // 2. ACTIVE SESSION HERO STATE OR TODAY'S PROGRESS & NEXT SESSION
-            if (activeSession.isActive) {
-                item {
-                    ActiveFocusHeroCard(
-                        activeSession = activeSession,
-                        onOpenFocus = onNavigateToFocus
+                    Text(
+                        text = "“Small steps, big results.”",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B)
                     )
                 }
             }
 
-            // 3. TODAY'S FOCUS PROGRESS
+            // 2. TODAY'S FOCUS PROGRESS
             item {
                 TodayFocusProgressCard(
                     focusedMinutes = focusedMinutes,
                     goalMinutes = dailyGoalMinutes,
-                    progress = progressFraction
+                    progress = progressFraction,
+                    streakDays = streak,
+                    focusScore = focusScore
                 )
             }
 
-            // 4. CURRENT / NEXT SESSION (if not actively in session)
-            if (!activeSession.isActive) {
-                item {
-                    CurrentOrNextSessionCard(
-                        session = nextSession,
-                        onStartFocus = { s ->
-                            viewModel.startFocusSession(
-                                subjectId = s.subjectId,
-                                subjectName = s.subjectName,
-                                taskName = s.taskName,
-                                durationMinutes = s.durationMinutes,
-                                mode = "COUNTDOWN"
-                            )
-                            onNavigateToFocus()
-                        },
-                        onViewSchedule = onNavigateToSchedule,
-                        onCreateSession = onOpenCreateSession
-                    )
-                }
-            }
-
-            // 5. HOME COMPACT QUICK STATS
+            // 3. PRIMARY ACTION: ▶ START QUICK FOCUS
             item {
-                HomeQuickStatsRow(
-                    focusedMinutes = focusedMinutes,
-                    goalMinutes = dailyGoalMinutes,
-                    focusScore = focusScore,
-                    streakDays = streak
-                )
-            }
-
-            // 6. QUICK ACTIONS
-            item {
-                QuickActionsSection(
-                    onStartQuickFocus = {
+                Button(
+                    onClick = {
                         preselectedSubject = null
                         showQuickFocusSheet = true
                     },
-                    onAddSession = onOpenCreateSession,
-                    onViewSchedule = onNavigateToSchedule
-                )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("start_quick_focus_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = Slate950,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "START QUICK FOCUS",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate950,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
             }
 
-            // 6.5 PREPARATION ROADMAPS & NEW PROJECT
+            // 4. SECONDARY ACTIONS: [+ Add Session] [View Schedule]
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Preparation & YouTube Roadmaps Banner
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, CyanPrimary, RoundedCornerShape(16.dp))
-                            .clickable { onNavigateToPreparation() },
-                        colors = CardDefaults.cardColors(containerColor = Slate900),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(CyanPrimary.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🎓", fontSize = 20.sp)
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "PREPARATION & ROADMAPS",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = CyanPrimary,
-                                        letterSpacing = 1.sp
-                                    )
-                                    Text(
-                                        text = "Curated YouTube Courses for B.Tech, NEET, JEE & Jobs",
-                                        fontSize = 12.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Open Preparation",
-                                tint = CyanPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    // Create New Project / Goal Action
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     OutlinedButton(
-                        onClick = { showAddSubjectDialog = true },
+                        onClick = onOpenCreateSession,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
+                            .weight(1f)
+                            .height(44.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
+                        border = BorderStroke(1.dp, Slate700),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = null,
                                 tint = CyanPrimary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "🎯 CREATE NEW PROJECT / STUDY GOAL",
+                                text = "Add Session",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onNavigateToSchedule,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Slate700),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = CyanPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "View Schedule",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
             }
 
-            // 7. TODAY'S SCHEDULE TIMELINE
+            // 5. CURRENT / NEXT SESSION
+            item {
+                CurrentOrNextSessionCard(
+                    activeSession = activeSession,
+                    nextSession = nextSession,
+                    onStartFocus = { s ->
+                        viewModel.startFocusSession(
+                            subjectId = s.subjectId,
+                            subjectName = s.subjectName,
+                            taskName = s.taskName,
+                            durationMinutes = s.durationMinutes,
+                            mode = "COUNTDOWN"
+                        )
+                        onNavigateToFocus()
+                    },
+                    onOpenFocus = onNavigateToFocus,
+                    onCreateSession = onOpenCreateSession
+                )
+            }
+
+            // 6. CONTINUE LEARNING
+            item {
+                ContinueLearningCard(
+                    onContinue = onNavigateToPreparation
+                )
+            }
+
+            // 7. TODAY'S SCHEDULE
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -407,16 +393,17 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "TODAY'S SCHEDULE",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp,
                         color = Color(0xFF64748B)
                     )
                     Text(
-                        text = "${todaySessions.size} Sessions",
+                        text = "See All",
                         fontSize = 12.sp,
                         color = CyanPrimary,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onNavigateToSchedule() }
                     )
                 }
             }
@@ -426,7 +413,7 @@ fun HomeScreen(
                     EmptyScheduleCard(onAddSession = onOpenCreateSession)
                 }
             } else {
-                items(todaySessions, key = { it.id }) { session ->
+                items(todaySessions.take(4), key = { it.id }) { session ->
                     TodaySessionTimelineItem(
                         session = session,
                         onStart = {
@@ -656,7 +643,9 @@ fun ActiveFocusHeroCard(
 fun TodayFocusProgressCard(
     focusedMinutes: Int,
     goalMinutes: Int,
-    progress: Float
+    progress: Float,
+    streakDays: Int = 12,
+    focusScore: Int = 88
 ) {
     val focusedHours = focusedMinutes / 60
     val focusedRemMinutes = focusedMinutes % 60
@@ -674,7 +663,7 @@ fun TodayFocusProgressCard(
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -683,44 +672,61 @@ fun TodayFocusProgressCard(
             ) {
                 Text(
                     text = "TODAY'S FOCUS",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     color = Color(0xFF94A3B8)
                 )
                 Text(
                     text = "$focusText / $goalText",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
             }
 
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(5.dp)),
-                color = CyanPrimary,
-                trackColor = Slate800,
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = CyanPrimary,
+                    trackColor = Slate800,
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (progress >= 1f) "Daily target achieved! 🎉" else "${(goalMinutes - focusedMinutes).coerceAtLeast(0)}m remaining",
-                    fontSize = 12.sp,
-                    color = if (progress >= 1f) EmeraldSuccess else Color(0xFF94A3B8)
-                )
-                Text(
-                    text = percentText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CyanPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "🔥 ", fontSize = 14.sp)
+                    Text(
+                        text = "$streakDays day streak",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Focus Score ",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Text(
+                        text = "$focusScore",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyanPrimary
+                    )
+                }
             }
         }
     }
@@ -729,12 +735,131 @@ fun TodayFocusProgressCard(
 // --- CURRENT / NEXT SESSION CARD ---
 @Composable
 fun CurrentOrNextSessionCard(
-    session: TimetableSessionEntity?,
+    activeSession: ActiveSessionState,
+    nextSession: TimetableSessionEntity?,
     onStartFocus: (TimetableSessionEntity) -> Unit,
-    onViewSchedule: () -> Unit,
+    onOpenFocus: () -> Unit,
     onCreateSession: () -> Unit
 ) {
-    if (session == null) {
+    if (activeSession.isActive) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Slate900),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, CyanPrimary)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "CURRENT SESSION",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(EmeraldSuccess)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text("NOW", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Slate950)
+                    }
+                }
+                Text(text = activeSession.subjectName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                if (activeSession.taskName.isNotBlank()) {
+                    Text(text = activeSession.taskName, fontSize = 14.sp, color = Color(0xFF94A3B8))
+                }
+                Button(
+                    onClick = onOpenFocus,
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Continue Focus", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+    } else if (nextSession != null) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Slate900),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "NEXT SESSION",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Text(
+                        text = "${nextSession.startTime} – ${nextSession.endTime}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFCBD5E1)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = nextSession.subjectName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    if (nextSession.taskName.isNotBlank()) {
+                        Text(
+                            text = nextSession.taskName,
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = { onStartFocus(nextSession) },
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("start_focus_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Slate950,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Start",
+                        color = Slate950,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    } else {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Slate900),
@@ -752,114 +877,83 @@ fun CurrentOrNextSessionCard(
                     color = Color(0xFF94A3B8)
                 )
                 Text(
-                    text = "Your schedule is clear for today.",
+                    text = "Your day is still open.",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
-                Text(
-                    text = "Create a focus block to protect your time and maintain your streak.",
-                    fontSize = 13.sp,
-                    color = Color(0xFF64748B)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = onCreateSession,
-                        colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Add Session", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                    OutlinedButton(
-                        onClick = onViewSchedule,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("View Timetable", color = Color.White, fontSize = 13.sp)
-                    }
+                Button(
+                    onClick = onCreateSession,
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Create Session", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
-    } else {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Slate900),
-            shape = RoundedCornerShape(16.dp)
+    }
+}
+
+// --- CONTINUE LEARNING CARD ---
+@Composable
+fun ContinueLearningCard(
+    onContinue: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onContinue() },
+        colors = CardDefaults.cardColors(containerColor = Slate900),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Text(
+                    text = "CONTINUE LEARNING",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(CyanPrimary.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
-                    Text(
-                        text = "NEXT SCHEDULED SESSION",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = CyanPrimary
-                    )
-                    Text(
-                        text = "${session.startTime} – ${session.endTime}",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFFCBD5E1)
-                    )
+                    Text("NEET", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyanPrimary)
                 }
-
-                Column {
-                    Text(
-                        text = session.subjectName,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    if (session.taskName.isNotBlank()) {
-                        Text(
-                            text = session.taskName,
-                            fontSize = 14.sp,
-                            color = Color(0xFF94A3B8),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Duration: ${session.durationMinutes}m",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B)
-                    )
-                    Button(
-                        onClick = { onStartFocus(session) },
-                        colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("start_focus_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = Slate950,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "START FOCUS",
-                            color = Slate950,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
+            }
+            Text(
+                text = "Physics • Current Electricity",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "62% complete",
+                    fontSize = 13.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                Text(
+                    text = "Continue →",
+                    color = CyanPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
             }
         }
     }

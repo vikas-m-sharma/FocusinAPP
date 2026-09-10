@@ -87,7 +87,8 @@ fun SettingsScreen(
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToSubjects: () -> Unit,
-    onNavigateToVoiceStudio: () -> Unit
+    onNavigateToVoiceStudio: () -> Unit,
+    onSignOut: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val userSettings by viewModel.userSettings.collectAsState()
@@ -307,14 +308,36 @@ fun SettingsScreen(
                                 }
                             }
                         } else {
-                            OutlinedButton(
-                                onClick = { viewModel.signOutGoogle(context) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("settings_sign_out_button"),
-                                shape = RoundedCornerShape(10.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Sign Out of Google", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.logoutUser(context)
+                                        onSignOut?.invoke()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("settings_sign_out_button"),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Sign Out", color = Color(0xFFEF4444), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.logoutUser(context)
+                                        onSignOut?.invoke()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("settings_switch_account_button"),
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Switch Account", color = Slate950, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

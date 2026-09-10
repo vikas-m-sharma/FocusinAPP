@@ -356,34 +356,168 @@ class FocusinRepository(private val database: AppDatabase) {
 
         // Seed initial starter subjects if none exist yet
         val existingSubjects = subjectDao.getAllSubjectsList()
+        val bioId: Long
+        val chemId: Long
+        val physId: Long
+        val mockId: Long
+        val revId: Long
+        val readId: Long
+
         if (existingSubjects.isEmpty()) {
-            subjectDao.insertSubject(
+            bioId = subjectDao.insertSubject(
                 SubjectEntity(
-                    name = "Deep Study",
-                    description = "Undistracted textbook reading, syllabus prep & exam practice",
-                    colorHex = "#38BDF8",
-                    iconName = "School",
+                    name = "Biology",
+                    description = "Human Physiology, Genetics & Ecology",
+                    colorHex = "#22C55E",
+                    iconName = "Eco",
                     targetWeeklyHours = 12f
                 )
             )
-            subjectDao.insertSubject(
+            chemId = subjectDao.insertSubject(
                 SubjectEntity(
-                    name = "Problem Solving",
-                    description = "Coding challenges, algorithmic thinking & math problems",
-                    colorHex = "#34D399",
-                    iconName = "Calculate",
+                    name = "Chemistry",
+                    description = "Organic Chemistry, Inorganic & Physical Chemistry",
+                    colorHex = "#06B6D4",
+                    iconName = "Science",
                     targetWeeklyHours = 10f
                 )
             )
-            subjectDao.insertSubject(
+            physId = subjectDao.insertSubject(
                 SubjectEntity(
-                    name = "Project Work",
-                    description = "Building core modules, debugging & creative projects",
-                    colorHex = "#A78BFA",
-                    iconName = "Code",
-                    targetWeeklyHours = 8f
+                    name = "Physics",
+                    description = "Current Electricity, Mechanics & Optics",
+                    colorHex = "#A855F7",
+                    iconName = "AutoAwesome",
+                    targetWeeklyHours = 10f
                 )
             )
+            mockId = subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Mock Test",
+                    description = "NEET Full Syllabus & Chapter Tests",
+                    colorHex = "#EF4444",
+                    iconName = "Description",
+                    targetWeeklyHours = 6f
+                )
+            )
+            revId = subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Revision",
+                    description = "Daily Notes & High Yield Formulas",
+                    colorHex = "#F59E0B",
+                    iconName = "Edit",
+                    targetWeeklyHours = 6f
+                )
+            )
+            readId = subjectDao.insertSubject(
+                SubjectEntity(
+                    name = "Reading",
+                    description = "NCERT Biology & Theory Concept Review",
+                    colorHex = "#8B5CF6",
+                    iconName = "MenuBook",
+                    targetWeeklyHours = 6f
+                )
+            )
+        } else {
+            bioId = existingSubjects.firstOrNull { it.name.contains("Bio", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+            chemId = existingSubjects.firstOrNull { it.name.contains("Chem", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+            physId = existingSubjects.firstOrNull { it.name.contains("Phys", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+            mockId = existingSubjects.firstOrNull { it.name.contains("Mock", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+            revId = existingSubjects.firstOrNull { it.name.contains("Rev", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+            readId = existingSubjects.firstOrNull { it.name.contains("Read", ignoreCase = true) }?.id
+                ?: existingSubjects.first().id
+        }
+
+        // Seed initial NEET schedule timetable sessions if none exist yet
+        val existingSessions = timetableDao.getAllSessionsList()
+        if (existingSessions.isEmpty()) {
+            val defaultSessions = mutableListOf<TimetableSessionEntity>()
+            for (day in 1..7) {
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = bioId,
+                        subjectName = "Biology",
+                        taskName = "Human Physiology",
+                        startTime = "06:00",
+                        endTime = "07:00",
+                        durationMinutes = 60,
+                        colorHex = "#22C55E",
+                        isCompleted = true
+                    )
+                )
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = chemId,
+                        subjectName = "Chemistry",
+                        taskName = "Organic Chemistry",
+                        startTime = "07:15",
+                        endTime = "08:15",
+                        durationMinutes = 60,
+                        colorHex = "#06B6D4",
+                        isCompleted = true
+                    )
+                )
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = physId,
+                        subjectName = "Physics",
+                        taskName = "Current Electricity",
+                        startTime = "10:00",
+                        endTime = "11:30",
+                        durationMinutes = 90,
+                        colorHex = "#A855F7",
+                        isCompleted = false
+                    )
+                )
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = mockId,
+                        subjectName = "Mock Test",
+                        taskName = "Physics Full Syllabus",
+                        startTime = "13:00",
+                        endTime = "14:00",
+                        durationMinutes = 60,
+                        colorHex = "#EF4444",
+                        isCompleted = false
+                    )
+                )
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = revId,
+                        subjectName = "Revision",
+                        taskName = "Today's Notes",
+                        startTime = "16:00",
+                        endTime = "17:00",
+                        durationMinutes = 60,
+                        colorHex = "#F59E0B",
+                        isCompleted = false
+                    )
+                )
+                defaultSessions.add(
+                    TimetableSessionEntity(
+                        dayOfWeek = day,
+                        subjectId = readId,
+                        subjectName = "Reading",
+                        taskName = "NCERT Biology",
+                        startTime = "19:00",
+                        endTime = "20:00",
+                        durationMinutes = 60,
+                        colorHex = "#8B5CF6",
+                        isCompleted = false
+                    )
+                )
+            }
+            timetableDao.insertAll(defaultSessions)
         }
 
         // Ensure today has a clean 0-metrics DailyStats entry if not present
