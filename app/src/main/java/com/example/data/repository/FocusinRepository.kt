@@ -2,8 +2,16 @@ package com.example.data.repository
 
 import com.example.data.local.AppDatabase
 import com.example.data.local.entity.AchievementEntity
+import com.example.data.local.entity.ChapterEntity
+import com.example.data.local.entity.ChapterProgressEntity
 import com.example.data.local.entity.DailyStatsEntity
 import com.example.data.local.entity.FocusSessionRecordEntity
+import com.example.data.local.entity.LearningResourceEntity
+import com.example.data.local.entity.QuestionAttemptEntity
+import com.example.data.local.entity.QuestionAttemptRecordEntity
+import com.example.data.local.entity.QuestionEntity
+import com.example.data.local.entity.QuizAttemptEntity
+import com.example.data.local.entity.QuizAttemptRecordEntity
 import com.example.data.local.entity.SubjectEntity
 import com.example.data.local.entity.TimetableSessionEntity
 import com.example.data.local.entity.UserSettingsEntity
@@ -24,6 +32,7 @@ class FocusinRepository(private val database: AppDatabase) {
     private val voiceRecordingDao = database.voiceRecordingDao()
     private val achievementDao = database.achievementDao()
     private val userSettingsDao = database.userSettingsDao()
+    private val learningDao = database.learningDao()
 
     // Flows
     val allSubjects: Flow<List<SubjectEntity>> = subjectDao.getAllSubjects()
@@ -33,6 +42,34 @@ class FocusinRepository(private val database: AppDatabase) {
     val allVoiceRecordings: Flow<List<VoiceRecordingEntity>> = voiceRecordingDao.getAllRecordings()
     val allAchievements: Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
     val userSettings: Flow<UserSettingsEntity?> = userSettingsDao.getUserSettings()
+
+    val allChapterProgress: Flow<List<ChapterProgressEntity>> = learningDao.getAllChapterProgress()
+    val allQuestionAttempts: Flow<List<QuestionAttemptRecordEntity>> = learningDao.getAllQuestionAttempts()
+    val allQuizAttempts: Flow<List<QuizAttemptRecordEntity>> = learningDao.getAllQuizAttempts()
+
+    val allChapters: Flow<List<ChapterEntity>> = learningDao.getAllChapters()
+    val allQuestions: Flow<List<QuestionEntity>> = learningDao.getAllQuestions()
+    val bookmarkedQuestions: Flow<List<QuestionEntity>> = learningDao.bookmarkedQuestions()
+    val featuredResources: Flow<List<LearningResourceEntity>> = learningDao.getFeaturedResources()
+
+    fun getChapterFlow(chapterId: String) = learningDao.getChapterFlow(chapterId)
+    fun getChaptersBySubject(subjectId: String) = learningDao.getChaptersBySubject(subjectId)
+    fun getChaptersBySubject(examId: String, subjectId: String) = learningDao.getChaptersBySubject(subjectId)
+    fun getTopicsForChapter(chapterId: String) = learningDao.getTopicsForChapter(chapterId)
+    fun getResourcesForChapter(chapterId: String) = learningDao.getResourcesForChapter(chapterId)
+    fun getQuestionsForChapter(chapterId: String) = learningDao.getQuestionsForChapter(chapterId)
+    fun getAttemptsForChapter(chapterId: String) = learningDao.getAttemptsForChapter(chapterId)
+
+    suspend fun getChapterProgressById(chapterId: String) = learningDao.getChapterProgressById(chapterId)
+    suspend fun updateChapterProgress(progress: ChapterProgressEntity) = learningDao.insertOrUpdateChapterProgress(progress)
+    suspend fun recordQuestionAttempt(attempt: QuestionAttemptRecordEntity) = learningDao.insertQuestionAttempt(attempt)
+    suspend fun recordQuestionAttempt(attempt: QuestionAttemptEntity) = learningDao.recordQuestionAttempt(attempt)
+    suspend fun recordQuizAttempt(attempt: QuizAttemptRecordEntity) = learningDao.insertQuizAttempt(attempt)
+    suspend fun recordQuizAttempt(attempt: QuizAttemptEntity) = learningDao.recordQuizAttempt(attempt)
+    suspend fun toggleQuestionBookmark(questionId: String, isBookmarked: Boolean) = learningDao.toggleQuestionBookmark(questionId, isBookmarked)
+    suspend fun updateTopicStatus(topicId: String, status: String) = learningDao.updateTopicStatus(topicId, status)
+    suspend fun getQuizAttemptById(id: Long) = learningDao.getQuizAttemptById(id)
+    fun getQuizAttemptFlowById(id: Long) = learningDao.getQuizAttemptFlowById(id)
 
     fun getSessionsForDay(dayOfWeek: Int): Flow<List<TimetableSessionEntity>> =
         timetableDao.getSessionsForDay(dayOfWeek)

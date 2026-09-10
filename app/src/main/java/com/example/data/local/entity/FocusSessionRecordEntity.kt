@@ -22,4 +22,6 @@ data class FocusSessionRecordEntity(
 ) {
     val actualDurationMinutes: Int get() = (actualDurationSeconds / 60).toInt()
     val durationMinutes: Int get() = actualDurationMinutes
+    val focusScore: Int get() = 85
+    val startTimestamp: Long get() = startTimeMillis
 }

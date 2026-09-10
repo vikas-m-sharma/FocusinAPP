@@ -29,6 +29,11 @@ data class ChapterEntity(
 
     val accuracyPercentage: Int
         get() = if (attemptedQuestions > 0) ((correctAttempts.toFloat() / attemptedQuestions) * 100).toInt().coerceIn(0, 100) else 0
+
+    val completedTopicsCount get() = completedTopics
+    val totalTopicsCount get() = totalTopics
+    val totalQuestionsCount get() = totalQuestions
+    val progressPercent get() = completionPercentage
 }
 
 @Entity(tableName = "topics")
@@ -67,27 +72,29 @@ data class QuestionEntity(
 data class QuestionAttemptEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val questionId: String,
-    val chapterId: String,
-    val subjectId: String,
-    val topicName: String,
-    val selectedOption: String,
-    val isCorrect: Boolean,
-    val timeTakenSeconds: Int,
+    val questionId: String = "",
+    val chapterId: String = "",
+    val subjectId: String = "",
+    val topicName: String = "",
+    val selectedOption: String = "",
+    val isCorrect: Boolean = false,
+    val timeTakenSeconds: Int = 0,
     val timestamp: Long = System.currentTimeMillis()
-)
+) {
+    val timeSpentSeconds get() = timeTakenSeconds
+}
 
 @Entity(tableName = "quiz_attempts")
 data class QuizAttemptEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val examId: String = "NEET",
-    val subjectId: String,
-    val chapterId: String,
-    val chapterName: String,
-    val totalQuestions: Int,
-    val correctAnswers: Int,
-    val timeTakenSeconds: Int,
+    val subjectId: String = "",
+    val chapterId: String = "",
+    val chapterName: String = "",
+    val totalQuestions: Int = 0,
+    val correctAnswers: Int = 0,
+    val timeTakenSeconds: Int = 0,
     val mode: String = "PRACTICE", // "PRACTICE", "MOCK_TEST", "AI_QUIZ", "PYQ"
     val strongTopicsJson: String = "[]",
     val weakTopicsJson: String = "[]",
@@ -95,6 +102,10 @@ data class QuizAttemptEntity(
 ) {
     val accuracy: Int
         get() = if (totalQuestions > 0) ((correctAnswers.toFloat() / totalQuestions) * 100).toInt() else 0
+
+    val correctCount get() = correctAnswers
+    val attemptedAt get() = timestamp
+    val scorePercentage get() = accuracy
 }
 
 @Entity(tableName = "learning_resources")
