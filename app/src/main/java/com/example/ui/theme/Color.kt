@@ -29,6 +29,15 @@ val AmethystAccent = Color(0xFFA855F7)
 val IndigoAccent = Color(0xFF6366F1)
 val TealAccent = Color(0xFF14B8A6)
 
+// Classic Royal / Academic Theme Palette
+val ClassicNavyDark = Color(0xFF0F172A)
+val ClassicNavySurface = Color(0xFF1E293B)
+val ClassicNavyCard = Color(0xFF334155)
+val ClassicBluePrimary = Color(0xFF2563EB)
+val ClassicBlueLight = Color(0xFF3B82F6)
+val ClassicGoldAccent = Color(0xFFD97706)
+val ClassicPaperWhite = Color(0xFFF8FAFC)
+
 // Subject Colors (for tags and timetable)
 val SubjectBlue = Color(0xFF38BDF8)
 val SubjectEmerald = Color(0xFF34D399)

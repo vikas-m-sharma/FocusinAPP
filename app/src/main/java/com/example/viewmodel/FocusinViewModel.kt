@@ -335,6 +335,41 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Records an incorrect question attempt directly into Mistake Diary (Room DB)
+     */
+    fun recordMistake(
+        questionId: String,
+        testTitle: String,
+        questionText: String,
+        selectedOption: String,
+        correctOption: String,
+        options: List<String>,
+        explanation: String,
+        subjectName: String,
+        topicName: String
+    ) {
+        viewModelScope.launch {
+            val entity = com.example.data.local.entity.MistakeEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                questionId = questionId,
+                testTitle = testTitle,
+                questionText = questionText,
+                selectedOption = selectedOption,
+                correctOption = correctOption,
+                optionsJson = options.joinToString("|||"),
+                explanation = explanation,
+                subjectName = subjectName,
+                topicName = topicName,
+                errorReason = com.example.data.model.MistakeReason.UNTAGGED.name,
+                studentNotes = "",
+                timestamp = System.currentTimeMillis(),
+                isResolved = false
+            )
+            repository.insertMistake(entity)
+        }
+    }
+
     fun recordQuizAttempt(attempt: QuizAttemptRecordEntity) {
         viewModelScope.launch {
             repository.recordQuizAttempt(attempt)
@@ -921,16 +956,21 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun loginUser(name: String, email: String, exam: String = "NEET", isGoogle: Boolean = false) {
+        val cleanEmail = email.trim().lowercase()
+        val userKey = "has_logged_in_before_${if (cleanEmail.isBlank()) "guest_user" else cleanEmail}"
+        val userHasLoggedBefore = authPrefs.getBoolean(userKey, false)
+
         authPrefs.edit()
             .putBoolean("is_logged_in", true)
             .putString("displayName", name)
             .putString("email", email)
             .putString("exam", exam)
+            .putBoolean(userKey, true)
             .apply()
         _isUserLoggedIn.value = true
 
         viewModelScope.launch {
-            repository.initializeDefaultDataIfNeeded()
+            repository.initializeDefaultDataIfNeeded(isFirstTimeUser = !userHasLoggedBefore)
             val current = repository.getUserSettingsSync()
             val formattedName = if (name.isNotBlank()) name else "Scholar"
             repository.updateUserSettings(

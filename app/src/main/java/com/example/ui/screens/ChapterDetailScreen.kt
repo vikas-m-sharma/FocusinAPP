@@ -991,77 +991,167 @@ private fun LearningResourceCard(
 
 @Composable
 private fun NotesTabContent(chapter: com.example.data.model.NeetChapter) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val highlightPrefs = remember {
+        context.getSharedPreferences("chapter_highlights_prefs", android.content.Context.MODE_PRIVATE)
+    }
+
+    // Default NCERT high yield points
+    val defaultNotes = remember(chapter.id) {
+        listOf(
+            "Current Density is a microscopic vector quantity: J = I / A = n·e·v_d, where direction is along electric field.",
+            "Ohm's Law holds microscopically as J = σ·E. Macroscopically V = I·R, where R = ρ·L / A.",
+            "Temperature Dependence: R_T = R_0(1 + α·ΔT). For metals α > 0 (resistance rises), for semiconductors α < 0 (resistance drops).",
+            "Kirchhoff's Junction Rule is strictly based on Conservation of Charge (Σ I_in = Σ I_out).",
+            "Kirchhoff's Loop Rule is strictly based on Conservation of Energy (Σ ΔV = 0 in closed loop).",
+            "Wheatstone Bridge Condition: When P/Q = R/S, potential at B equals potential at D, so zero current through galvanometer.",
+            "Potentiometer works on null deflection method; it draws NO current from source at balance point, acting as infinite resistance voltmeter.",
+            "Wire Stretching Trap: When wire is stretched to n times its initial length, volume remains constant, so Area becomes A/n and Resistance becomes n²·R.",
+            "Terminal Voltage Trap: V = E - I·r while discharging, but V = E + I·r when the cell is being charged by an external source.",
+            "Drift Velocity magnitude is v_d = e·E·τ / m. Note that drift velocity is extremely slow (~10⁻⁴ m/s), yet light turns on instantly because electric field propagates at speed of light."
+        )
+    }
+
+    // Highlighted points set stored persistently in SharedPreferences
+    var highlightedIndices by remember {
+        val saved = highlightPrefs.getStringSet("highlights_${chapter.id}", emptySet()) ?: emptySet()
+        mutableStateOf(saved.mapNotNull { it.toIntOrNull() }.toSet())
+    }
+
+    fun toggleHighlight(index: Int) {
+        val newSet = if (highlightedIndices.contains(index)) {
+            highlightedIndices - index
+        } else {
+            highlightedIndices + index
+        }
+        highlightedIndices = newSet
+        highlightPrefs.edit()
+            .putStringSet("highlights_${chapter.id}", newSet.map { it.toString() }.toSet())
+            .apply()
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Highlighting instructions banner
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.3f))
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "High-Yield Summary: ${chapter.name}",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = Color(0xFFF8FAFC),
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(text = "🖊️", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = "Permanent NCERT Highlighter",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Tap any point to permanently highlight in yellow / neon",
+                                fontSize = 11.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                    Surface(
+                        color = Color(0xFFFACC15).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${highlightedIndices.size} Marked",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFACC15),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Key Formulas & Governing Equations:\n" +
-                                "• Current Density: J = I / A = n·e·v_d\n" +
-                                "• Ohm's Law: V = I·R, where R = ρ·L / A\n" +
-                                "• Temperature Dependence: R_T = R_0(1 + α·ΔT)\n" +
-                                "• Kirchhoff's Junction Rule: Σ I_in = Σ I_out (Charge Conservation)\n" +
-                                "• Kirchhoff's Loop Rule: Σ ΔV = 0 (Energy Conservation)\n" +
-                                "• Wheatstone Bridge Balance: P / Q = R / S\n" +
-                                "• Potentiometer: V_x = k·l_x (Null deflection)",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFFCBD5E1),
-                            lineHeight = 20.sp,
-                            fontSize = 12.5.sp
-                        )
-                    )
+                    }
                 }
             }
         }
 
         item {
+            Text(
+                text = "CHAPTER FORMULAS & NCERT HIGH-YIELD POINTS",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        itemsIndexed(defaultNotes) { idx, noteText ->
+            val isHighlighted = highlightedIndices.contains(idx)
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { toggleHighlight(idx) }
+                    .border(
+                        1.dp,
+                        if (isHighlighted) Color(0xFFFACC15) else Color(0xFF334155),
+                        RoundedCornerShape(12.dp)
+                    ),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isHighlighted) Color(0xFF423908) else Color(0xFF1E293B)
+                )
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "NEET Trap Alerts & Common Mistakes",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = Color(0xFFF43F5E),
-                            fontWeight = FontWeight.Bold
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isHighlighted) Color(0xFFFACC15) else Color(0xFF334155)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${idx + 1}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isHighlighted) Color(0xFF0F172A) else Color(0xFF94A3B8)
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "1. Wire Stretching: When wire is stretched to n times length, area becomes A/n, so resistance increases by n².\n" +
-                                "2. Internal Resistance: Terminal voltage V = E - Ir during discharge, but V = E + Ir during charging.\n" +
-                                "3. Short Circuits: Always trace identical potential nodes before calculating equivalent resistance.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF94A3B8),
-                            lineHeight = 19.sp,
-                            fontSize = 12.sp
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = noteText,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = if (isHighlighted) Color(0xFFFEF08A) else Color(0xFFE2E8F0),
+                                fontWeight = if (isHighlighted) FontWeight.SemiBold else FontWeight.Normal,
+                                lineHeight = 20.sp,
+                                fontSize = 13.sp
+                            )
                         )
+                    }
+
+                    Text(
+                        text = if (isHighlighted) "★" else "☆",
+                        fontSize = 16.sp,
+                        color = if (isHighlighted) Color(0xFFFACC15) else Color(0xFF64748B)
                     )
                 }
             }

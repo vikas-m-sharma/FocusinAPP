@@ -110,7 +110,8 @@ fun HomeScreen(
     onNavigateToSchedule: () -> Unit,
     onNavigateToFocus: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onOpenCreateSession: () -> Unit
+    onOpenCreateSession: () -> Unit,
+    onNavigateToMistakeDiary: () -> Unit = {}
 ) {
     val activeSession by viewModel.activeSessionState.collectAsState()
     val todayStats by viewModel.todayStats.collectAsState()
@@ -254,6 +255,61 @@ fun HomeScreen(
                     streakDays = streak,
                     focusScore = focusScore
                 )
+            }
+
+            // MISTAKE DIARY (GALTI TRACKER) QUICK ACCESS CARD
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onNavigateToMistakeDiary() }
+                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFEF4444).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "🔥", fontSize = 20.sp)
+                            }
+                            Column {
+                                Text(
+                                    text = "Mistake Diary (Galti Tracker)",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Tag error reasons • 1-Tap Targeted Re-Test",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Open →",
+                            fontSize = 13.sp,
+                            color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             // 3. PRIMARY ACTION: ▶ START QUICK FOCUS

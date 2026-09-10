@@ -51,15 +51,20 @@ import com.example.ui.screens.FocusAnalyticsScreen
 import com.example.ui.screens.FocusSessionScreen
 import com.example.ui.screens.GoalsAndInsightsScreen
 import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.InternalPdfReaderScreen
 import com.example.ui.screens.LearningAnalyticsScreen
 import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.MistakeDiaryScreen
 import com.example.ui.screens.MockTestScreen
 import com.example.ui.screens.MyPracticeScreen
+import com.example.ui.screens.NeetPyqPdf
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PerformanceScreen
 import com.example.ui.screens.PreviousYearPapersScreen
 import com.example.ui.screens.ProgressComparisonScreen
 import com.example.ui.screens.QuestionBankScreen
+import com.example.ui.screens.QuestionPaperViewerScreen
+import com.example.ui.screens.neet15YearsPdfArchive
 import com.example.ui.screens.RecentActivityScreen
 import com.example.ui.screens.ScheduleScreen
 import com.example.ui.screens.SettingsScreen
@@ -229,7 +234,8 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                     onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                    onOpenCreateSession = { navController.navigate(Screen.Schedule.route) }
+                    onOpenCreateSession = { navController.navigate(Screen.Schedule.route) },
+                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) }
                 )
             }
 
@@ -269,7 +275,8 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onNavigateToGoalsAndInsights = { navController.navigate(Screen.GoalsAndInsights.route) },
                     onPracticeTopic = { chapId, mode ->
                         navController.navigate(Screen.ChapterPractice.createRoute(chapId, mode))
-                    }
+                    },
+                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) }
                 )
             }
 
@@ -358,7 +365,12 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                 QuestionBankScreen(
                     viewModel = viewModel,
                     onNavigateToSolvePaper = { testTitle ->
-                        navController.navigate(Screen.MockTest.createRoute(testTitle))
+                        // Try parsing year from "NEET 2024" or default to 2024
+                        val yearDigits = testTitle.filter { it.isDigit() }.toIntOrNull() ?: 2024
+                        navController.navigate(Screen.QuestionPaperViewer.createRoute(yearDigits))
+                    },
+                    onNavigateToPdfReader = { year ->
+                        navController.navigate(Screen.QuestionPaperViewer.createRoute(year))
                     },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
@@ -369,7 +381,11 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onSolvePaper = { testTitle ->
-                        navController.navigate(Screen.MockTest.createRoute(testTitle))
+                        val yearDigits = testTitle.filter { it.isDigit() }.toIntOrNull() ?: 2024
+                        navController.navigate(Screen.QuestionPaperViewer.createRoute(yearDigits))
+                    },
+                    onOpenPdfReader = { year ->
+                        navController.navigate(Screen.QuestionPaperViewer.createRoute(year))
                     },
                     onNavigateToChapterPyq = { chapterId ->
                         navController.navigate(Screen.ChapterPractice.createRoute(chapterId, "pyq"))
@@ -544,6 +560,61 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onStartPractice = { chapId ->
                         navController.navigate(Screen.ChapterPractice.createRoute(chapId, "practice"))
                     }
+                )
+            }
+
+            composable(Screen.MistakeDiary.route) {
+                val mistakeVm: com.example.viewmodel.MistakeDiaryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                            return com.example.viewmodel.MistakeDiaryViewModel(viewModel.repository) as T
+                        }
+                    }
+                )
+                MistakeDiaryScreen(
+                    viewModel = mistakeVm,
+                    onNavigateBack = { navController.popBackStack() },
+                    onStartTargetedReTest = {
+                        navController.navigate(Screen.MockTest.createRoute("Mistake Diary Re-Test"))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.PdfReader.route,
+                arguments = listOf(navArgument("year") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val year = backStackEntry.arguments?.getInt("year") ?: 2024
+                val paper = neet15YearsPdfArchive.find { it.year == year }
+                    ?: NeetPyqPdf(
+                        year = year,
+                        title = "NEET (UG) $year Question Paper",
+                        paperCode = "Code Q$year",
+                        questionsCount = 180,
+                        durationText = "3h 20m",
+                        pdfUrl = "https://nta.ac.in/Downloads",
+                        solutionUrl = "https://nta.ac.in/Downloads",
+                        fileSize = "3.8 MB"
+                    )
+                InternalPdfReaderScreen(
+                    paper = paper,
+                    onNavigateBack = { navController.popBackStack() },
+                    onStartTest = { testTitle ->
+                        navController.navigate(Screen.MockTest.createRoute(testTitle))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.QuestionPaperViewer.route,
+                arguments = listOf(navArgument("year") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val year = backStackEntry.arguments?.getInt("year") ?: 2024
+                QuestionPaperViewerScreen(
+                    year = year,
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

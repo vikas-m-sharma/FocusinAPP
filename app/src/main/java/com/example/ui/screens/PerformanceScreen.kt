@@ -75,7 +75,8 @@ fun PerformanceScreen(
     onNavigateToAiCoach: () -> Unit = {},
     onNavigateToProgressComparison: () -> Unit = {},
     onNavigateToGoalsAndInsights: () -> Unit = {},
-    onPracticeTopic: (String, String) -> Unit = { _, _ -> }
+    onPracticeTopic: (String, String) -> Unit = { _, _ -> },
+    onNavigateToMistakeDiary: () -> Unit = {}
 ) {
     var viewPeriod by remember { mutableStateOf("WEEK") } // "WEEK", "MONTH", "YEAR"
 
@@ -501,6 +502,14 @@ fun PerformanceScreen(
                                 onClick = onNavigateToGoalsAndInsights
                             )
                         }
+
+                        HubQuickButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Mistake Diary (Galti Tracker) 🔥",
+                            icon = Icons.Default.Whatshot,
+                            tint = Color(0xFFEF4444),
+                            onClick = onNavigateToMistakeDiary
+                        )
 
                         HubQuickButton(
                             modifier = Modifier.fillMaxWidth(),

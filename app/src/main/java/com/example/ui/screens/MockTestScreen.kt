@@ -35,6 +35,9 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -100,8 +103,13 @@ fun MockTestScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPractice: (String, String) -> Unit = { _, _ -> }
 ) {
-    val testQuestions = remember {
-        com.example.data.model.sampleNeetQuestions.shuffled().take(15)
+    val testQuestions = remember(testTitle) {
+        val extractedYear = testTitle.filter { it.isDigit() }.toIntOrNull() ?: 2024
+        if (testTitle.contains("Chapter", ignoreCase = true) || testTitle.contains("Speed", ignoreCase = true) || testTitle.contains("Quick", ignoreCase = true)) {
+            com.example.data.model.generateFull180NeetQuestions(extractedYear).take(25)
+        } else {
+            com.example.data.model.generateFull180NeetQuestions(extractedYear) // Complete 180 Questions as per NTA NEET pattern!
+        }
     }
 
     // User answers map: question index -> selectedOption ("A", "B", "C", "D")
@@ -141,10 +149,31 @@ fun MockTestScreen(
         }
     }
 
-    // Test duration: 20 minutes countdown (or 35 minutes for PwD compensatory time)
-    val totalTimeSeconds = remember(isPwDTest) { if (isPwDTest) 35 * 60L else 20 * 60L }
+    // Test duration: 200 minutes (3h 20m) for full 180-question NEET paper, or 240 mins for PwD
+    val totalTimeSeconds = remember(isPwDTest, testQuestions.size) {
+        if (isPwDTest) {
+            if (testQuestions.size == 180) 240 * 60L else 40 * 60L
+        } else {
+            if (testQuestions.size == 180) 200 * 60L else 20 * 60L
+        }
+    }
     val startEpoch = remember { System.currentTimeMillis() }
     var remainingSeconds by remember { mutableLongStateOf(totalTimeSeconds) }
+
+    // Per-Question Speed Tracker (seconds spent on current question)
+    var currentQuestionTimeSeconds by remember { mutableIntStateOf(0) }
+    val questionTimeSpentMap = remember { mutableStateMapOf<Int, Int>() }
+    var isOmrModeActive by remember { mutableStateOf(testTitle.contains("OMR", ignoreCase = true)) }
+
+    // Per-question timer loop
+    LaunchedEffect(currentIndex, isSubmitted) {
+        currentQuestionTimeSeconds = questionTimeSpentMap[currentIndex] ?: 0
+        while (!isSubmitted) {
+            delay(1000L)
+            currentQuestionTimeSeconds++
+            questionTimeSpentMap[currentIndex] = currentQuestionTimeSeconds
+        }
+    }
 
     LaunchedEffect(isSubmitted) {
         while (!isSubmitted && remainingSeconds > 0) {
@@ -239,6 +268,21 @@ fun MockTestScreen(
                             quizType = "MOCK_TEST"
                         )
                     )
+
+                    // Auto-record into Room Mistake Diary if student answered incorrectly
+                    if (!isCorr) {
+                        viewModel.recordMistake(
+                            questionId = q.id,
+                            testTitle = testTitle,
+                            questionText = q.questionText,
+                            selectedOption = q.options.getOrElse(listOf("A", "B", "C", "D").indexOf(selected)) { selected },
+                            correctOption = q.options.getOrElse(q.correctOptionIndex) { correctOptKey },
+                            options = q.options,
+                            explanation = q.explanation,
+                            subjectName = q.subjectName,
+                            topicName = q.topicName
+                        )
+                    }
                 }
             }
         }
@@ -571,24 +615,55 @@ fun MockTestScreen(
                     contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Tag & Review toggle
+                    // Tag, Per-Question Timer & Review toggle
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                color = Slate850,
-                                shape = RoundedCornerShape(8.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "${currentQuestion.subjectName} • ${currentQuestion.topicName}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF94A3B8),
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
+                                Surface(
+                                    color = Slate850,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "${currentQuestion.subjectName} • ${currentQuestion.topicName}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF94A3B8),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                // Per-Question Speed Tracker Pill
+                                Surface(
+                                    color = if (currentQuestionTimeSeconds > 90) RoseError.copy(alpha = 0.15f) else CyanPrimary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, if (currentQuestionTimeSeconds > 90) RoseError.copy(alpha = 0.4f) else CyanPrimary.copy(alpha = 0.3f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Timer,
+                                            contentDescription = null,
+                                            tint = if (currentQuestionTimeSeconds > 90) RoseError else CyanPrimary,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${currentQuestionTimeSeconds}s spent",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (currentQuestionTimeSeconds > 90) RoseError else CyanPrimary
+                                        )
+                                    }
+                                }
                             }
 
                             val isMarked = markedForReview[currentIndex] == true
@@ -641,7 +716,123 @@ fun MockTestScreen(
                         }
                     }
 
-                    // Options A, B, C, D (No green/red feedback during test)
+                    // Options A, B, C, D (Supports Standard & Realistic OMR Ink Darkening mode)
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isOmrModeActive) "Darken OMR Bubble for Q${currentIndex + 1}:" else "Select Option:",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF94A3B8)
+                            )
+
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { isOmrModeActive = !isOmrModeActive },
+                                color = if (isOmrModeActive) EmeraldSuccess.copy(alpha = 0.15f) else Slate850,
+                                border = if (isOmrModeActive) BorderStroke(1.dp, EmeraldSuccess) else null
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.GridOn,
+                                        contentDescription = null,
+                                        tint = if (isOmrModeActive) EmeraldSuccess else Color(0xFF94A3B8),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isOmrModeActive) "OMR Mode: ON" else "OMR Mode: OFF",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isOmrModeActive) EmeraldSuccess else Color(0xFF94A3B8)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Realistic OMR Bubble Row if in OMR mode
+                    if (isOmrModeActive) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, EmeraldSuccess.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
+                                colors = CardDefaults.cardColors(containerColor = Slate900),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Official NEET OMR Bubbles (Q${currentIndex + 1})",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldSuccess
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        listOf("A", "B", "C", "D").forEach { optKey ->
+                                            val isDarkened = selectedOptions[currentIndex] == optKey
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(42.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isDarkened) Color(0xFF0F172A) else Color.Transparent)
+                                                    .border(
+                                                        2.dp,
+                                                        if (isDarkened) CyanPrimary else Color(0xFF64748B),
+                                                        CircleShape
+                                                    )
+                                                    .clickable {
+                                                        selectedOptions[currentIndex] = optKey
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isDarkened) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(28.dp)
+                                                            .clip(CircleShape)
+                                                            .background(CyanPrimary),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = optKey,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Slate950
+                                                        )
+                                                    }
+                                                } else {
+                                                    Text(
+                                                        text = optKey,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = Color(0xFF94A3B8)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     val options = currentQuestion.options.mapIndexed { idx, optText ->
                         listOf("A", "B", "C", "D").getOrElse(idx) { "A" } to optText
                     }

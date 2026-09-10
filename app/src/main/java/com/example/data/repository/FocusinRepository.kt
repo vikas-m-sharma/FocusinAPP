@@ -33,6 +33,7 @@ class FocusinRepository(private val database: AppDatabase) {
     private val achievementDao = database.achievementDao()
     private val userSettingsDao = database.userSettingsDao()
     private val learningDao = database.learningDao()
+    private val mistakeDao = database.mistakeDao()
 
     // Flows
     val allSubjects: Flow<List<SubjectEntity>> = subjectDao.getAllSubjects()
@@ -44,6 +45,10 @@ class FocusinRepository(private val database: AppDatabase) {
     val allVoiceRecordings: Flow<List<VoiceRecordingEntity>> = voiceRecordingDao.getAllRecordings()
     val allAchievements: Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
     val userSettings: Flow<UserSettingsEntity?> = userSettingsDao.getUserSettings()
+
+    // Mistake Diary Room Flows
+    val allMistakes: Flow<List<com.example.data.local.entity.MistakeEntity>> = mistakeDao.getAllMistakes()
+    val unresolvedMistakes: Flow<List<com.example.data.local.entity.MistakeEntity>> = mistakeDao.getUnresolvedMistakes()
 
     // Learning Analytics Flows
     val allChapterProgress: Flow<List<ChapterProgressEntity>> = learningDao.getAllChapterProgress()
@@ -312,8 +317,8 @@ class FocusinRepository(private val database: AppDatabase) {
         }
     }
 
-    // Initialize Default Achievements & Starter Subjects
-    suspend fun initializeDefaultDataIfNeeded() {
+    // Initialize Default Achievements, Starter Subjects, and Handle First-Time User Blank State
+    suspend fun initializeDefaultDataIfNeeded(isFirstTimeUser: Boolean = false) {
         val defaultAchievements = listOf(
             AchievementEntity("first_session", "First Focus Session", "Completed your very first focused study block.", "Flag"),
             AchievementEntity("focus_10h", "10 Hours Focused", "Accumulated 10 full hours of deep, distraction-free focus.", "Timer"),
@@ -403,91 +408,96 @@ class FocusinRepository(private val database: AppDatabase) {
                 ?: existingSubjects.first().id
         }
 
-        // Seed initial NEET schedule timetable sessions if none exist yet
-        val existingSessions = timetableDao.getAllSessionsList()
-        if (existingSessions.isEmpty()) {
-            val defaultSessions = mutableListOf<TimetableSessionEntity>()
-            for (day in 1..7) {
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = bioId,
-                        subjectName = "Biology",
-                        taskName = "Human Physiology",
-                        startTime = "06:00",
-                        endTime = "07:00",
-                        durationMinutes = 60,
-                        colorHex = "#22C55E",
-                        isCompleted = true
+        if (isFirstTimeUser) {
+            // First-time login: clear all sessions so user starts with a 100% BLANK timetable!
+            timetableDao.deleteAllSessions()
+        } else {
+            // Seed initial NEET schedule timetable sessions if none exist yet
+            val existingSessions = timetableDao.getAllSessionsList()
+            if (existingSessions.isEmpty()) {
+                val defaultSessions = mutableListOf<TimetableSessionEntity>()
+                for (day in 1..7) {
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = bioId,
+                            subjectName = "Biology",
+                            taskName = "Human Physiology",
+                            startTime = "06:00",
+                            endTime = "07:00",
+                            durationMinutes = 60,
+                            colorHex = "#22C55E",
+                            isCompleted = true
+                        )
                     )
-                )
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = chemId,
-                        subjectName = "Chemistry",
-                        taskName = "Organic Chemistry",
-                        startTime = "07:15",
-                        endTime = "08:15",
-                        durationMinutes = 60,
-                        colorHex = "#06B6D4",
-                        isCompleted = true
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = chemId,
+                            subjectName = "Chemistry",
+                            taskName = "Organic Chemistry",
+                            startTime = "07:15",
+                            endTime = "08:15",
+                            durationMinutes = 60,
+                            colorHex = "#06B6D4",
+                            isCompleted = true
+                        )
                     )
-                )
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = physId,
-                        subjectName = "Physics",
-                        taskName = "Current Electricity",
-                        startTime = "10:00",
-                        endTime = "11:30",
-                        durationMinutes = 90,
-                        colorHex = "#A855F7",
-                        isCompleted = false
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = physId,
+                            subjectName = "Physics",
+                            taskName = "Current Electricity",
+                            startTime = "10:00",
+                            endTime = "11:30",
+                            durationMinutes = 90,
+                            colorHex = "#A855F7",
+                            isCompleted = false
+                        )
                     )
-                )
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = mockId,
-                        subjectName = "Mock Test",
-                        taskName = "Physics Full Syllabus",
-                        startTime = "13:00",
-                        endTime = "14:00",
-                        durationMinutes = 60,
-                        colorHex = "#EF4444",
-                        isCompleted = false
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = mockId,
+                            subjectName = "Mock Test",
+                            taskName = "Physics Full Syllabus",
+                            startTime = "13:00",
+                            endTime = "14:00",
+                            durationMinutes = 60,
+                            colorHex = "#EF4444",
+                            isCompleted = false
+                        )
                     )
-                )
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = revId,
-                        subjectName = "Revision",
-                        taskName = "Today's Notes",
-                        startTime = "16:00",
-                        endTime = "17:00",
-                        durationMinutes = 60,
-                        colorHex = "#F59E0B",
-                        isCompleted = false
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = revId,
+                            subjectName = "Revision",
+                            taskName = "Today's Notes",
+                            startTime = "16:00",
+                            endTime = "17:00",
+                            durationMinutes = 60,
+                            colorHex = "#F59E0B",
+                            isCompleted = false
+                        )
                     )
-                )
-                defaultSessions.add(
-                    TimetableSessionEntity(
-                        dayOfWeek = day,
-                        subjectId = readId,
-                        subjectName = "Reading",
-                        taskName = "NCERT Biology",
-                        startTime = "19:00",
-                        endTime = "20:00",
-                        durationMinutes = 60,
-                        colorHex = "#8B5CF6",
-                        isCompleted = false
+                    defaultSessions.add(
+                        TimetableSessionEntity(
+                            dayOfWeek = day,
+                            subjectId = readId,
+                            subjectName = "Reading",
+                            taskName = "NCERT Biology",
+                            startTime = "19:00",
+                            endTime = "20:00",
+                            durationMinutes = 60,
+                            colorHex = "#8B5CF6",
+                            isCompleted = false
+                        )
                     )
-                )
+                }
+                timetableDao.insertAll(defaultSessions)
             }
-            timetableDao.insertAll(defaultSessions)
         }
 
         // Ensure today has a clean 0-metrics DailyStats entry if not present
@@ -707,6 +717,15 @@ class FocusinRepository(private val database: AppDatabase) {
         val settings = getUserSettingsSync()
         userSettingsDao.insertOrUpdate(settings.copy(currentStreak = 0, lastActiveDate = ""))
     }
+
+    // Mistake Diary Operations
+    suspend fun insertMistake(mistake: com.example.data.local.entity.MistakeEntity) = mistakeDao.insertMistake(mistake)
+    suspend fun insertMistakes(mistakes: List<com.example.data.local.entity.MistakeEntity>) = mistakeDao.insertMistakes(mistakes)
+    suspend fun updateMistakeReason(id: String, reason: String, notes: String?) = mistakeDao.updateMistakeReason(id, reason, notes)
+    suspend fun markMistakeResolved(id: String, isResolved: Boolean) = mistakeDao.markResolved(id, isResolved)
+    suspend fun recordMistakeReattempt(id: String, isResolved: Boolean) = mistakeDao.recordReattempt(id, isResolved)
+    suspend fun deleteMistakeById(id: String) = mistakeDao.deleteMistakeById(id)
+    suspend fun deleteAllMistakes() = mistakeDao.deleteAllMistakes()
 
     private fun isYesterday(dateStr: String): Boolean {
         if (dateStr.isEmpty()) return false

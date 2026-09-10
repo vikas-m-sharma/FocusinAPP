@@ -12,12 +12,14 @@ import com.example.data.local.dao.SubjectDao
 import com.example.data.local.dao.TimetableDao
 import com.example.data.local.dao.UserSettingsDao
 import com.example.data.local.dao.VoiceRecordingDao
+import com.example.data.local.dao.MistakeDao
 import com.example.data.local.entity.AchievementEntity
 import com.example.data.local.entity.ChapterEntity
 import com.example.data.local.entity.ChapterProgressEntity
 import com.example.data.local.entity.DailyStatsEntity
 import com.example.data.local.entity.FocusSessionRecordEntity
 import com.example.data.local.entity.LearningResourceEntity
+import com.example.data.local.entity.MistakeEntity
 import com.example.data.local.entity.QuestionAttemptEntity
 import com.example.data.local.entity.QuestionAttemptRecordEntity
 import com.example.data.local.entity.QuestionEntity
@@ -46,9 +48,10 @@ import com.example.data.local.entity.VoiceRecordingEntity
         QuestionEntity::class,
         QuestionAttemptEntity::class,
         QuizAttemptEntity::class,
-        LearningResourceEntity::class
+        LearningResourceEntity::class,
+        MistakeEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun achievementDao(): AchievementDao
     abstract fun userSettingsDao(): UserSettingsDao
     abstract fun learningDao(): LearningDao
+    abstract fun mistakeDao(): MistakeDao
 
     companion object {
         @Volatile

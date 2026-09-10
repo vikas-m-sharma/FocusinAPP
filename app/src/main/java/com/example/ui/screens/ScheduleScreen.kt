@@ -100,6 +100,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -138,13 +139,6 @@ fun ScheduleScreen(
     val isAiGenerating by viewModel.isAiGenerating.collectAsState()
     val aiGeneratedPlan by viewModel.aiGeneratedTimetable.collectAsState()
     val aiGoalPlan by viewModel.aiGoalPlan.collectAsState()
-
-    // Ensure initial schedule is seeded if sessions are empty
-    androidx.compose.runtime.LaunchedEffect(allSessions.size) {
-        if (allSessions.isEmpty()) {
-            viewModel.ensureDefaultDataSeeded()
-        }
-    }
 
     val daySessions = allSessions.filter { it.dayOfWeek == selectedDay }
 
@@ -415,26 +409,40 @@ fun ScheduleScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "No sessions planned for ${selectedDayData.dayName}",
+                                text = "Your ${selectedDayData.dayName} timetable is blank",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Tap below to add a focus session.",
+                                text = "Create your custom study routine or use AI to generate a schedule.",
                                 fontSize = 12.sp,
-                                color = Color(0xFF94A3B8)
+                                color = Color(0xFF94A3B8),
+                                textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = { showCreateDialog = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
-                                shape = RoundedCornerShape(10.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = Slate950, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Add Session", color = Slate950, fontWeight = FontWeight.Bold)
+                                Button(
+                                    onClick = { showCreateDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Slate950, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Add Session", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.seedDemoData() },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                    border = BorderStroke(1.dp, Slate700),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Load Template", fontSize = 12.sp, color = Color.White)
+                                }
                             }
                         }
                     }

@@ -62,6 +62,13 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object ProgressComparison : Screen("progress_comparison", "Progress Comparison")
     object GoalsAndInsights : Screen("goals_and_insights", "Goals & Insights")
     object AiPerformanceCoach : Screen("ai_performance_coach", "AI Performance Coach")
+    object MistakeDiary : Screen("mistake_diary", "Mistake Diary")
+    object PdfReader : Screen("pdf_reader/{year}", "PDF Reader") {
+        fun createRoute(year: Int) = "pdf_reader/$year"
+    }
+    object QuestionPaperViewer : Screen("question_paper_viewer/{year}", "Question Paper Viewer") {
+        fun createRoute(year: Int = 2024) = "question_paper_viewer/$year"
+    }
 
     companion object {
         val Timetable = Schedule
