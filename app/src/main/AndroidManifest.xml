@@ -24,7 +24,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
@@ -39,7 +39,7 @@
 
         <!-- Foreground Service for Ongoing Focus Session Timer -->
         <service
-            android:name=".service.FocusSessionService"
+            android:name="com.example.service.FocusSessionService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
@@ -49,7 +49,7 @@
 
         <!-- Accessibility Service for App-Blocking / Focus Protection Mode -->
         <service
-            android:name=".service.FocusinAccessibilityService"
+            android:name="com.example.service.FocusinAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -62,7 +62,7 @@
 
         <!-- Alarm Receiver for Scheduled Timetable Sessions -->
         <receiver
-            android:name=".receiver.SessionAlarmReceiver"
+            android:name="com.example.receiver.SessionAlarmReceiver"
             android:exported="false" />
     </application>
 

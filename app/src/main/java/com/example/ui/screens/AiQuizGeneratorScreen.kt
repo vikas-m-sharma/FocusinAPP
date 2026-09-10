@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,7 +58,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entity.QuestionEntity
+import com.example.data.model.NeetQuestion
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -78,7 +79,10 @@ fun AiQuizGeneratorScreen(
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val chapter by viewModel.getChapterFlow(chapterId).collectAsState(initial = null)
+    val chapter = remember(chapterId) {
+        (com.example.data.model.neetPhysicsChapters + com.example.data.model.neetChemistryChapters + com.example.data.model.neetBiologyChapters)
+            .find { it.id == chapterId }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     var isGenerating by remember { mutableStateOf(false) }
@@ -88,80 +92,60 @@ fun AiQuizGeneratorScreen(
 
     // Simulated Generated Quiz Questions (grounded in syllabus & topics)
     val generatedQuestions = remember {
-        mutableListOf(
-            QuestionEntity(
+        mutableStateListOf<NeetQuestion>(
+            NeetQuestion(
                 id = "ai_q_01",
-                examId = "NEET",
-                subjectId = chapter?.subjectId ?: "PHYSICS",
-                chapterId = chapterId,
+                subjectName = chapter?.subjectName ?: "Physics",
+                chapterName = chapter?.name ?: "Current Electricity",
                 topicName = "Kirchhoff's Voltage Law",
                 questionText = "In a closed loop containing two resistors R1 = 4 Ω, R2 = 6 Ω and two opposing ideal batteries of 12 V and 4 V, what is the net potential drop across resistor R2?",
-                optionA = "4.8 V",
-                optionB = "3.2 V",
-                optionC = "8.0 V",
-                optionD = "6.0 V",
-                correctOption = "A",
+                options = listOf("4.8 V", "3.2 V", "8.0 V", "6.0 V"),
+                correctOptionIndex = 0,
                 explanation = "Net EMF in the circuit is 12 V - 4 V = 8 V. Total series resistance is 4 Ω + 6 Ω = 10 Ω. Current I = 8 / 10 = 0.8 A. Potential drop across R2 = I × R2 = 0.8 A × 6 Ω = 4.8 V.",
                 difficulty = "MEDIUM"
             ),
-            QuestionEntity(
+            NeetQuestion(
                 id = "ai_q_02",
-                examId = "NEET",
-                subjectId = chapter?.subjectId ?: "PHYSICS",
-                chapterId = chapterId,
+                subjectName = chapter?.subjectName ?: "Physics",
+                chapterName = chapter?.name ?: "Current Electricity",
                 topicName = "Internal Resistance & Terminal Voltage",
                 questionText = "A cell provides a current of 0.5 A through an external resistor of 2 Ω, and 0.25 A through a resistor of 5 Ω. What is the internal resistance of the cell?",
-                optionA = "1.0 Ω",
-                optionB = "0.5 Ω",
-                optionC = "2.0 Ω",
-                optionD = "1.5 Ω",
-                correctOption = "A",
+                options = listOf("1.0 Ω", "0.5 Ω", "2.0 Ω", "1.5 Ω"),
+                correctOptionIndex = 0,
                 explanation = "EMF E = I(R + r). Thus E = 0.5(2 + r) and E = 0.25(5 + r). Equating both: 1 + 0.5r = 1.25 + 0.25r ==> 0.25r = 0.25 ==> r = 1.0 Ω.",
                 difficulty = "MEDIUM"
             ),
-            QuestionEntity(
+            NeetQuestion(
                 id = "ai_q_03",
-                examId = "NEET",
-                subjectId = chapter?.subjectId ?: "PHYSICS",
-                chapterId = chapterId,
+                subjectName = chapter?.subjectName ?: "Physics",
+                chapterName = chapter?.name ?: "Current Electricity",
                 topicName = "Heating Effect of Current",
                 questionText = "If current through a fixed resistor is increased by 100%, what is the percentage increase in power dissipated across the resistor?",
-                optionA = "100%",
-                optionB = "200%",
-                optionC = "300%",
-                optionD = "400%",
-                correctOption = "C",
+                options = listOf("100%", "200%", "300%", "400%"),
+                correctOptionIndex = 2,
                 explanation = "Power P = I²R. When current doubles (I' = 2I), new power P' = (2I)²R = 4(I²R) = 4P. Percentage increase = ((4P - P)/P) × 100 = 300%.",
                 difficulty = "EASY"
             ),
-            QuestionEntity(
+            NeetQuestion(
                 id = "ai_q_04",
-                examId = "NEET",
-                subjectId = chapter?.subjectId ?: "PHYSICS",
-                chapterId = chapterId,
+                subjectName = chapter?.subjectName ?: "Physics",
+                chapterName = chapter?.name ?: "Current Electricity",
                 topicName = "Metre Bridge Sensitivity",
                 questionText = "A Metre Bridge operates with the highest accuracy and sensitivity when the null balance point is obtained:",
-                optionA = "Near 10 cm",
-                optionB = "Near 50 cm (the center)",
-                optionC = "Near 90 cm",
-                optionD = "At either end of the wire",
-                correctOption = "B",
+                options = listOf("Near 10 cm", "Near 50 cm (the center)", "Near 90 cm", "At either end of the wire"),
+                correctOptionIndex = 1,
                 explanation = "A Wheatstone / Metre bridge has maximum sensitivity when all four resistance arms are nearly equal, which occurs when the balance point is close to the midpoint (50 cm).",
                 difficulty = "EASY"
             ),
-            QuestionEntity(
+            NeetQuestion(
                 id = "ai_q_05",
-                examId = "NEET",
-                subjectId = chapter?.subjectId ?: "PHYSICS",
-                chapterId = chapterId,
+                subjectName = chapter?.subjectName ?: "Physics",
+                chapterName = chapter?.name ?: "Current Electricity",
                 topicName = "Temperature Coefficient",
                 questionText = "Which of the following materials possesses a negative temperature coefficient of resistance (resistance drops with increasing temperature)?",
-                optionA = "Copper",
-                optionB = "Nichrome",
-                optionC = "Silicon (Semiconductor)",
-                optionD = "Silver",
-                correctOption = "C",
-                explanation = "In intrinsic semiconductors like Silicon and Germanium, increasing temperature breaks covalent bonds, exponentially freeing charge carriers, leading to a negative temperature coefficient of resistance.",
+                options = listOf("Copper", "Nichrome", "Silicon (Semiconductor)", "Manganin"),
+                correctOptionIndex = 2,
+                explanation = "Semiconductors like Silicon have a negative temperature coefficient of resistance because higher temperature liberates more charge carriers.",
                 difficulty = "EASY"
             )
         )
@@ -358,7 +342,7 @@ fun AiQuizGeneratorScreen(
             ) {
                 item {
                     LinearProgressIndicator(
-                        progress = { (currentQuizIndex + 1).toFloat() / generatedQuestions.size },
+                        progress = (currentQuizIndex + 1).toFloat() / generatedQuestions.size,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
@@ -410,9 +394,11 @@ fun AiQuizGeneratorScreen(
                 // Options
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("A" to q.optionA, "B" to q.optionB, "C" to q.optionC, "D" to q.optionD).forEach { (optKey, optText) ->
+                        for (index in q.options.indices) {
+                            val optText = q.options[index]
+                            val optKey = listOf("A", "B", "C", "D").getOrElse(index) { "A" }
                             val isSel = selectedQuizOption == optKey
-                            val isCorrect = optKey == q.correctOption
+                            val isCorrect = index == q.correctOptionIndex
 
                             val bg = when {
                                 hasAnsweredCurrent && isCorrect -> EmeraldSuccess.copy(alpha = 0.15f)
@@ -468,12 +454,13 @@ fun AiQuizGeneratorScreen(
 
                 // Action button
                 item {
+                    val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
                     if (!hasAnsweredCurrent) {
                         Button(
                             onClick = {
                                 if (selectedQuizOption != null) {
                                     hasAnsweredCurrent = true
-                                    if (selectedQuizOption == q.correctOption) {
+                                    if (selectedQuizOption == correctOptKey) {
                                         correctQuizScore++
                                     }
                                 }
@@ -497,10 +484,10 @@ fun AiQuizGeneratorScreen(
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Text(
-                                        text = if (selectedQuizOption == q.correctOption) "Correct Solution" else "Correction: Correct is (${q.correctOption})",
+                                        text = if (selectedQuizOption == correctOptKey) "Correct Solution" else "Correction: Correct is ($correctOptKey)",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
-                                        color = if (selectedQuizOption == q.correctOption) EmeraldSuccess else RoseError
+                                        color = if (selectedQuizOption == correctOptKey) EmeraldSuccess else RoseError
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(text = q.explanation, fontSize = 12.sp, color = Color(0xFFCBD5E1))
@@ -516,16 +503,18 @@ fun AiQuizGeneratorScreen(
                                     } else {
                                         quizFinished = true
                                         // Save to database
-                                        viewModel.recordQuizAttempt(
-                                            subjectId = chapter?.subjectId ?: "PHYSICS",
-                                            chapterId = chapterId,
-                                            chapterName = chapter?.name ?: "Current Electricity",
-                                            totalQuestions = generatedQuestions.size,
-                                            correctAnswers = correctQuizScore,
-                                            timeTakenSeconds = 180,
-                                            strongTopics = listOf("Heating Effect", "Temperature Coefficient"),
-                                            weakTopics = listOf("Kirchhoff's Voltage Law")
-                                        )
+                                         viewModel.recordQuizAttempt(
+                                             com.example.data.local.entity.QuizAttemptRecordEntity(
+                                                 title = "${chapter?.name ?: "Current Electricity"} Quiz",
+                                                 subjectName = chapter?.subjectName ?: "Physics",
+                                                 chapterName = chapter?.name ?: "Current Electricity",
+                                                 totalQuestions = generatedQuestions.size,
+                                                 correctCount = correctQuizScore,
+                                                 scorePercentage = if (generatedQuestions.isNotEmpty()) (correctQuizScore * 100 / generatedQuestions.size) else 0,
+                                                 strongTopicsJson = "[\"Heating Effect\", \"Temperature Coefficient\"]",
+                                                 weakTopicsJson = "[\"Kirchhoff's Voltage Law\"]"
+                                             )
+                                         )
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
@@ -626,7 +615,17 @@ fun AiQuizGeneratorScreen(
                 item {
                     Button(
                         onClick = {
-                            viewModel.addRevisionToSchedule(chapter?.subjectId ?: "PHYSICS", "Kirchhoff's Laws")
+                            viewModel.scheduleLearningSession(
+                                subjectName = chapter?.subjectName ?: "Physics",
+                                topicName = "Kirchhoff's Laws",
+                                dayOfWeek = 2,
+                                startTime = "06:00 AM",
+                                endTime = "08:00 AM",
+                                durationMinutes = 120,
+                                focusModeEnabled = true,
+                                alarmEnabled = true,
+                                protectionLevel = "STRICT"
+                            )
                             onNavigateBack()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),

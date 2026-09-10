@@ -85,9 +85,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entity.ChapterEntity
 import com.example.data.local.entity.LearningResourceEntity
-import com.example.data.local.entity.TopicEntity
 import com.example.util.YouTubeUtils
 import com.example.viewmodel.FocusinViewModel
 import java.util.Calendar
@@ -103,19 +101,52 @@ fun ChapterDetailScreen(
 ) {
     val context = LocalContext.current
 
-    val chapter by viewModel.getChapterFlow(chapterId).collectAsState(initial = null)
-    val topics by viewModel.getTopicsForChapter(chapterId).collectAsState(initial = emptyList())
-    val resources by viewModel.getResourcesForChapter(chapterId).collectAsState(initial = emptyList())
+    val currentChapter = remember(chapterId) {
+        (com.example.data.model.neetPhysicsChapters + com.example.data.model.neetChemistryChapters + com.example.data.model.neetBiologyChapters)
+            .find { it.id == chapterId } ?: com.example.data.model.neetPhysicsChapters.first()
+    }
 
-    val currentChapter = chapter ?: ChapterEntity(
-        id = chapterId,
-        examId = "NEET",
-        subjectId = "PHYSICS",
-        name = "Current Electricity",
-        orderIndex = 5,
-        totalTopics = 12,
-        completedTopics = 7
-    )
+    val allProgress by viewModel.allChapterProgress.collectAsState()
+    val chapterProgress = remember(allProgress, chapterId) {
+        allProgress.find { it.chapterId == chapterId }
+    }
+
+    val completedTopicSet = remember(chapterProgress) {
+        val json = chapterProgress?.completedTopicsJson ?: "[]"
+        try {
+            val arr = org.json.JSONArray(json)
+            val set = mutableSetOf<String>()
+            for (i in 0 until arr.length()) set.add(arr.getString(i))
+            set
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+
+    val topics = remember(currentChapter, completedTopicSet) {
+        currentChapter.topics.map { topicName ->
+            com.example.data.model.NeetTopic(
+                id = topicName,
+                name = topicName,
+                isCompleted = completedTopicSet.contains(topicName)
+            )
+        }
+    }
+
+    val resources = remember(currentChapter) {
+        listOf(
+            LearningResourceEntity(
+                id = "res_${currentChapter.id}_1",
+                chapterId = currentChapter.id,
+                title = "${currentChapter.name} - Complete One Shot",
+                channel = "Physics Wallah / Unacademy",
+                durationText = "2:45:00",
+                resourceType = "One Shot",
+                searchQuery = "${currentChapter.name} NEET physics one shot",
+                recommendedReason = "Best conceptual clarity for NEET pattern"
+            )
+        )
+    }
 
     // Tab state: "LEARN" (Primary), "NOTES", "PRACTICE", "PYQs"
     var selectedTab by remember { mutableStateOf("LEARN") }
@@ -131,19 +162,19 @@ fun ChapterDetailScreen(
     var schedulePrefillTopicName by remember { mutableStateOf("") }
 
     // Topic status update dialog state
-    var topicToUpdateStatus by remember { mutableStateOf<TopicEntity?>(null) }
+    var topicToUpdateStatus by remember { mutableStateOf<com.example.data.model.NeetTopic?>(null) }
 
     val activeTopic = remember(topics, selectedTopicId) {
         if (selectedTopicId != null) {
             topics.firstOrNull { it.id == selectedTopicId }
         } else {
-            topics.firstOrNull { it.status == "IN_PROGRESS" } ?: topics.firstOrNull { it.status == "NOT_STARTED" }
+            topics.firstOrNull { !it.isCompleted } ?: topics.firstOrNull()
         }
     }
 
-    val completionPercent = currentChapter.completionPercentage
-    val completedCount = currentChapter.completedTopics
-    val totalCount = currentChapter.totalTopics
+    val completedCount = topics.count { it.isCompleted }
+    val totalCount = topics.size
+    val completionPercent = if (totalCount > 0) (completedCount * 100 / totalCount) else 0
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -186,7 +217,7 @@ fun ChapterDetailScreen(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${currentChapter.examId} • ${currentChapter.subjectId.replaceFirstChar { it.uppercase() }}",
+                        text = "NEET UG • ${currentChapter.subjectName}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF38BDF8),
                             fontSize = 12.sp,
@@ -354,13 +385,13 @@ fun ChapterDetailScreen(
     // --- ADD TO SCHEDULE DIALOG ---
     if (showScheduleDialog) {
         AddToScheduleDialog(
-            exam = currentChapter.examId,
-            subject = currentChapter.subjectId,
+            exam = "NEET",
+            subject = currentChapter.subjectName,
             initialTopic = if (schedulePrefillTopicName.isNotBlank()) "${currentChapter.name} - $schedulePrefillTopicName" else currentChapter.name,
             onDismiss = { showScheduleDialog = false },
             onConfirm = { day, start, end, duration, focusMode, alarm, protection ->
                 viewModel.scheduleLearningSession(
-                    subjectName = currentChapter.subjectId,
+                    subjectName = currentChapter.subjectName,
                     topicName = schedulePrefillTopicName.ifBlank { currentChapter.name },
                     dayOfWeek = day,
                     startTime = start,
@@ -382,9 +413,9 @@ fun ChapterDetailScreen(
             topic = topic,
             onDismiss = { topicToUpdateStatus = null },
             onSelectStatus = { newStatus ->
-                viewModel.updateTopicStatus(topic.id, currentChapter.id, newStatus)
+                viewModel.toggleTopicCompletion(currentChapter.id, currentChapter.subjectName, currentChapter.name, topic.name)
                 topicToUpdateStatus = null
-                Toast.makeText(context, "Updated: ${topic.name} → $newStatus", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Updated: ${topic.name}", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -392,14 +423,14 @@ fun ChapterDetailScreen(
 
 @Composable
 private fun LearnTabContent(
-    currentChapter: ChapterEntity,
-    topics: List<TopicEntity>,
+    currentChapter: com.example.data.model.NeetChapter,
+    topics: List<com.example.data.model.NeetTopic>,
     resources: List<LearningResourceEntity>,
-    activeTopic: TopicEntity?,
+    activeTopic: com.example.data.model.NeetTopic?,
     selectedResourceCategory: String,
     onSelectResourceCategory: (String) -> Unit,
     onSelectTopic: (String) -> Unit,
-    onOpenStatusDialog: (TopicEntity) -> Unit,
+    onOpenStatusDialog: (com.example.data.model.NeetTopic) -> Unit,
     onWatchResource: (String) -> Unit,
     onAddToSchedule: (String) -> Unit,
     onNavigateToPractice: () -> Unit,
@@ -459,7 +490,7 @@ private fun LearnTabContent(
         item {
             Button(
                 onClick = {
-                    val query = "NEET ${currentChapter.subjectId} ${currentChapter.name} ${activeTopic?.name ?: "one shot"}"
+                    val query = "NEET ${currentChapter.subjectName} ${currentChapter.name} ${activeTopic?.name ?: "one shot"}"
                     onWatchResource(query)
                 },
                 modifier = Modifier
@@ -564,7 +595,7 @@ private fun LearnTabContent(
                         Spacer(modifier = Modifier.height(10.dp))
                         Button(
                             onClick = {
-                                onWatchResource("NEET ${currentChapter.subjectId} ${currentChapter.name} $selectedResourceCategory")
+                                onWatchResource("NEET ${currentChapter.subjectName} ${currentChapter.name} $selectedResourceCategory")
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
                         ) {
@@ -699,14 +730,14 @@ private fun LearnTabContent(
 @Composable
 private fun RoadmapTopicCard(
     index: Int,
-    topic: TopicEntity,
+    topic: com.example.data.model.NeetTopic,
     isActive: Boolean,
     onClick: () -> Unit,
     onStatusClick: () -> Unit
 ) {
-    val isCompleted = topic.status == "COMPLETED"
-    val isInProgress = topic.status == "IN_PROGRESS" || topic.status == "LEARNING"
-    val isNeedsRevision = topic.status == "NEEDS_REVISION"
+    val isCompleted = topic.isCompleted
+    val isInProgress = !topic.isCompleted && isActive
+    val isNeedsRevision = false
 
     val statusColor = when {
         isCompleted -> Color(0xFF10B981)
@@ -959,7 +990,7 @@ private fun LearningResourceCard(
 }
 
 @Composable
-private fun NotesTabContent(chapter: ChapterEntity) {
+private fun NotesTabContent(chapter: com.example.data.model.NeetChapter) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
@@ -1040,7 +1071,7 @@ private fun NotesTabContent(chapter: ChapterEntity) {
 
 @Composable
 private fun PracticeTabContent(
-    chapter: ChapterEntity,
+    chapter: com.example.data.model.NeetChapter,
     onPractice: () -> Unit,
     onAiQuiz: () -> Unit
 ) {
@@ -1069,7 +1100,7 @@ private fun PracticeTabContent(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${chapter.totalQuestions} questions curated from NEET syllabus",
+                        text = "${chapter.totalQuestionsCount} questions curated from NEET syllabus",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8))
                     )
                     Spacer(modifier = Modifier.height(14.dp))
@@ -1129,7 +1160,7 @@ private fun PracticeTabContent(
 
 @Composable
 private fun PyqTabContent(
-    chapter: ChapterEntity,
+    chapter: com.example.data.model.NeetChapter,
     onSolvePyq: (String) -> Unit
 ) {
     val years = listOf("2024", "2023", "2022", "2021", "2020")
@@ -1196,7 +1227,7 @@ private fun PyqTabContent(
 
 @Composable
 private fun TopicStatusDialog(
-    topic: TopicEntity,
+    topic: com.example.data.model.NeetTopic,
     onDismiss: () -> Unit,
     onSelectStatus: (String) -> Unit
 ) {
@@ -1229,7 +1260,7 @@ private fun TopicStatusDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 statuses.forEach { (statusCode, label) ->
-                    val isCurrent = topic.status == statusCode
+                    val isCurrent = if (statusCode == "COMPLETED") topic.isCompleted else !topic.isCompleted
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

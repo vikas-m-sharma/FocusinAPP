@@ -223,11 +223,7 @@ fun FocusinApp(viewModel: FocusinViewModel) {
             composable(Screen.Performance.route) {
                 PerformanceScreen(
                     viewModel = viewModel,
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                    onNavigateToQuestionBank = { navController.navigate(Screen.QuestionBank.route) },
-                    onNavigateToScheduleWithPrefill = { _, _ ->
-                        navController.navigate(Screen.Schedule.route)
-                    }
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
 

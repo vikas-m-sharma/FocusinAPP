@@ -80,9 +80,9 @@ fun WeakTopicsScreen(
     var schedulePrefillSubject by remember { mutableStateOf("Physics") }
 
     val filteredList = when (selectedSubjectFilter) {
-        "PHYSICS" -> weakTopics.filter { it.subjectId.equals("PHYSICS", ignoreCase = true) }
-        "CHEMISTRY" -> weakTopics.filter { it.subjectId.equals("CHEMISTRY", ignoreCase = true) }
-        "BIOLOGY" -> weakTopics.filter { it.subjectId.equals("BIOLOGY", ignoreCase = true) }
+        "PHYSICS" -> weakTopics.filter { it.subjectName.equals("PHYSICS", ignoreCase = true) || it.subjectName.equals("Physics", ignoreCase = true) }
+        "CHEMISTRY" -> weakTopics.filter { it.subjectName.equals("CHEMISTRY", ignoreCase = true) || it.subjectName.equals("Chemistry", ignoreCase = true) }
+        "BIOLOGY" -> weakTopics.filter { it.subjectName.equals("BIOLOGY", ignoreCase = true) || it.subjectName.equals("Biology", ignoreCase = true) }
         else -> weakTopics
     }
 
@@ -251,7 +251,7 @@ fun WeakTopicsScreen(
                         },
                         onSchedule = {
                             schedulePrefillTopic = topic.topicName
-                            schedulePrefillSubject = topic.subjectId.lowercase().replaceFirstChar { it.uppercase() }
+                            schedulePrefillSubject = topic.subjectName.lowercase().replaceFirstChar { it.uppercase() }
                             showScheduleDialog = true
                         }
                     )
@@ -289,7 +289,7 @@ fun WeakTopicCard(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = topic.subjectId,
+                        text = topic.subjectName,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = CyanPrimary,

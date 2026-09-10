@@ -39,6 +39,18 @@ interface LearningDao {
     @Query("SELECT * FROM quiz_attempts ORDER BY timestamp DESC")
     fun getAllQuizAttempts(): Flow<List<QuizAttemptRecordEntity>>
 
+    @Query("SELECT * FROM quiz_attempts WHERE id = :id")
+    suspend fun getQuizAttemptById(id: Long): QuizAttemptRecordEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizAttempt(attempt: QuizAttemptRecordEntity): Long
+
+    @Query("DELETE FROM chapter_progress")
+    suspend fun deleteAllChapterProgress()
+
+    @Query("DELETE FROM question_attempts")
+    suspend fun deleteAllQuestionAttempts()
+
+    @Query("DELETE FROM quiz_attempts")
+    suspend fun deleteAllQuizAttempts()
 }

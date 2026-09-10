@@ -55,6 +55,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.neetBiologyChapters
+import com.example.data.model.neetChemistryChapters
+import com.example.data.model.neetPhysicsChapters
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -65,6 +68,7 @@ import com.example.ui.theme.Slate850
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.Slate950
 import com.example.viewmodel.FocusinViewModel
+import org.json.JSONArray
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,13 +79,20 @@ fun SubjectPerformanceScreen(
     onNavigateToChapter: (String) -> Unit = {},
     onNavigateToChapterPractice: (String) -> Unit = {}
 ) {
-    val neetChapters by viewModel.neetChapters.collectAsState()
+    val chapterProgressList by viewModel.chapterProgressList.collectAsState()
     val allQuestionAttempts by viewModel.allQuestionAttempts.collectAsState()
 
     val cleanSubjectId = subjectName.uppercase()
-    val subjectChapters = neetChapters.filter { it.subjectId.equals(cleanSubjectId, ignoreCase = true) }
+    val subjectChapters = remember(cleanSubjectId) {
+        when (cleanSubjectId) {
+            "PHYSICS" -> neetPhysicsChapters
+            "CHEMISTRY" -> neetChemistryChapters
+            "BIOLOGY" -> neetBiologyChapters
+            else -> neetPhysicsChapters + neetChemistryChapters + neetBiologyChapters
+        }
+    }
 
-    val subjectAttempts = allQuestionAttempts.filter { it.subjectId.equals(cleanSubjectId, ignoreCase = true) }
+    val subjectAttempts = allQuestionAttempts.filter { it.subjectName.equals(cleanSubjectId, ignoreCase = true) || it.subjectName.equals(subjectName, ignoreCase = true) }
     val totalSubjectQuestions = subjectAttempts.size
     val totalSubjectCorrect = subjectAttempts.count { it.isCorrect }
     val subjectAccuracy = if (totalSubjectQuestions > 0) {
@@ -92,14 +103,14 @@ fun SubjectPerformanceScreen(
 
     val sortedChapters = when (sortOption) {
         "ACCURACY_LOW" -> subjectChapters.sortedBy { ch ->
-            val atts = subjectAttempts.filter { it.chapterId == ch.id }
+            val atts = subjectAttempts.filter { it.chapterName.equals(ch.name, ignoreCase = true) }
             if (atts.isNotEmpty()) ((atts.count { it.isCorrect }.toFloat() / atts.size) * 100).toInt() else 100
         }
         "ACCURACY_HIGH" -> subjectChapters.sortedByDescending { ch ->
-            val atts = subjectAttempts.filter { it.chapterId == ch.id }
+            val atts = subjectAttempts.filter { it.chapterName.equals(ch.name, ignoreCase = true) }
             if (atts.isNotEmpty()) ((atts.count { it.isCorrect }.toFloat() / atts.size) * 100).toInt() else 0
         }
-        else -> subjectChapters.sortedBy { it.orderIndex }
+        else -> subjectChapters
     }
 
     Scaffold(
@@ -212,7 +223,10 @@ fun SubjectPerformanceScreen(
                             }
                             Column {
                                 Text("Completed", fontSize = 11.sp, color = Color(0xFF94A3B8))
-                                val compChapters = subjectChapters.count { it.completionPercentage >= 100 }
+                                val compChapters = chapterProgressList.count { p ->
+                                    p.subjectName.equals(cleanSubjectId, ignoreCase = true) &&
+                                    try { JSONArray(p.completedTopicsJson).length() >= p.totalTopicsCount } catch (_: Exception) { false }
+                                }
                                 Text("$compChapters / ${subjectChapters.size}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = CyanPrimary)
                             }
                         }
@@ -264,14 +278,18 @@ fun SubjectPerformanceScreen(
 
             // List of Chapters with Drill-Down info
             items(sortedChapters, key = { it.id }) { chapter ->
-                val chAttempts = subjectAttempts.filter { it.chapterId == chapter.id }
+                val chAttempts = subjectAttempts.filter { it.chapterName.equals(chapter.name, ignoreCase = true) }
                 val chAccuracy = if (chAttempts.isNotEmpty()) {
                     ((chAttempts.count { it.isCorrect }.toFloat() / chAttempts.size) * 100).toInt()
                 } else if (chapter.name.contains("Current", ignoreCase = true)) {
                     54
                 } else {
-                    chapter.completionPercentage.coerceIn(60, 95)
+                    75
                 }
+
+                val progress = chapterProgressList.firstOrNull { it.chapterId == chapter.id || it.chapterName.equals(chapter.name, ignoreCase = true) }
+                val completedTopics = try { JSONArray(progress?.completedTopicsJson ?: "[]").length() } catch (_: Exception) { 0 }
+                val totalTopics = if (chapter.topics.isNotEmpty()) chapter.topics.size else (progress?.totalTopicsCount ?: 10)
 
                 Card(
                     shape = RoundedCornerShape(14.dp),
@@ -294,7 +312,7 @@ fun SubjectPerformanceScreen(
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = "${chapter.completedTopics}/${chapter.totalTopics} topics completed • ${chapter.totalQuestions} questions",
+                                    text = "$completedTopics/$totalTopics topics completed • ${chapter.totalQuestionsCount} questions",
                                     fontSize = 12.sp,
                                     color = Color(0xFF94A3B8)
                                 )

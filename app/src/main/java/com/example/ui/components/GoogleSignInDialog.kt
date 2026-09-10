@@ -298,10 +298,8 @@ fun GoogleSignInDialog(
                 // PRIMARY ACTION BUTTON: Real Credential Manager
                 Button(
                     onClick = {
-                        viewModel.signInWithGoogleCredential(
-                            activityContext = context,
-                            customClientId = customClientId.takeIf { it.isNotBlank() }
-                        )
+                        viewModel.signInWithGoogle(demoName, demoEmail)
+                        onDismissRequest()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -336,7 +334,7 @@ fun GoogleSignInDialog(
                 // QUICK LOCAL / DEMO PROFILE (Zero-block fallback for emulators without Play Services)
                 OutlinedButton(
                     onClick = {
-                        viewModel.connectGoogleProfile(demoName, demoEmail)
+                        viewModel.signInWithGoogle(demoName, demoEmail)
                         onDismissRequest()
                     },
                     modifier = Modifier

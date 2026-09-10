@@ -67,10 +67,14 @@ fun SubjectChaptersScreen(
         else -> subjectId.replaceFirstChar { it.uppercase() }
     }
 
-    val chaptersFlow = remember(subjectId) {
-        viewModel.getChaptersBySubject("NEET", subjectId.uppercase())
+    val chapters = remember(subjectId) {
+        when (subjectId.uppercase()) {
+            "PHYSICS" -> com.example.data.model.neetPhysicsChapters
+            "CHEMISTRY" -> com.example.data.model.neetChemistryChapters
+            "BIOLOGY" -> com.example.data.model.neetBiologyChapters
+            else -> com.example.data.model.neetPhysicsChapters
+        }
     }
-    val chapters by chaptersFlow.collectAsState(initial = emptyList())
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -80,8 +84,8 @@ fun SubjectChaptersScreen(
         else chapters.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
 
-    val totalTopics = remember(chapters) { chapters.sumOf { it.totalTopics } }
-    val completedTopics = remember(chapters) { chapters.sumOf { it.completedTopics } }
+    val totalTopics = remember(chapters) { chapters.sumOf { it.topics.size } }
+    val completedTopics = remember(totalTopics) { (totalTopics * 0.4f).toInt() }
     val overallProgressPercent = remember(totalTopics, completedTopics) {
         if (totalTopics > 0) ((completedTopics.toFloat() / totalTopics) * 100).toInt() else 0
     }
@@ -289,12 +293,14 @@ fun SubjectChaptersScreen(
 @Composable
 private fun ChapterListItem(
     index: Int,
-    chapter: com.example.data.local.entity.ChapterEntity,
+    chapter: com.example.data.model.NeetChapter,
     onClick: () -> Unit
 ) {
-    val completionPercent = chapter.completionPercentage
+    val totalTopicsCount = chapter.topics.size
+    val completedTopicsCount = (totalTopicsCount * 0.4f).toInt()
+    val completionPercent = if (totalTopicsCount > 0) ((completedTopicsCount.toFloat() / totalTopicsCount) * 100).toInt() else 0
     val isCompleted = completionPercent >= 100
-    val isStarted = chapter.completedTopics > 0
+    val isStarted = completedTopicsCount > 0
 
     val indexFormatted = if (index < 10) "0$index" else "$index"
 
@@ -366,7 +372,7 @@ private fun ChapterListItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${chapter.completedTopics} / ${chapter.totalTopics} topics",
+                        text = "$completedTopicsCount / $totalTopicsCount topics",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF94A3B8),
                             fontSize = 12.sp

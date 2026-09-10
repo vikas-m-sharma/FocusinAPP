@@ -74,7 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entity.QuestionEntity
+import com.example.data.model.NeetQuestion
 import com.example.ui.screens.AddToScheduleDialog
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -96,13 +96,8 @@ fun MockTestScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPractice: (String, String) -> Unit = { _, _ -> }
 ) {
-    val allQuestions: List<QuestionEntity> by viewModel.allQuestions.collectAsState()
-
-    // Prepare questions for mock test
-    val testQuestions = remember(allQuestions) {
-        if (allQuestions.isNotEmpty()) {
-            allQuestions.shuffled().take(15)
-        } else emptyList()
+    val testQuestions = remember {
+        com.example.data.model.sampleNeetQuestions.shuffled().take(15)
     }
 
     // User answers map: question index -> selectedOption ("A", "B", "C", "D")
@@ -141,12 +136,14 @@ fun MockTestScreen(
     val answeredCount = selectedOptions.size
     val correctCount = testQuestions.indices.count { idx ->
         val q = testQuestions[idx]
-        selectedOptions[idx] == q.correctOption
+        val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
+        selectedOptions[idx] == correctOptKey
     }
     val incorrectCount = testQuestions.indices.count { idx ->
         val q = testQuestions[idx]
+        val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
         val selected = selectedOptions[idx]
-        selected != null && selected != q.correctOption
+        selected != null && selected != correctOptKey
     }
     val unattemptedCount = testQuestions.size - answeredCount
     val neetScore = (correctCount * 4) - (incorrectCount * 1)
@@ -158,39 +155,48 @@ fun MockTestScreen(
     LaunchedEffect(isSubmitted) {
         if (isSubmitted && testQuestions.isNotEmpty()) {
             val weak = testQuestions.filterIndexed { idx, q ->
-                selectedOptions[idx] != null && selectedOptions[idx] != q.correctOption
+                val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
+                selectedOptions[idx] != null && selectedOptions[idx] != correctOptKey
             }.map { it.topicName }.distinct()
 
             val strong = testQuestions.filterIndexed { idx, q ->
-                selectedOptions[idx] == q.correctOption
+                val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
+                selectedOptions[idx] == correctOptKey
             }.map { it.topicName }.distinct()
 
             viewModel.recordQuizAttempt(
-                examId = "NEET",
-                subjectId = "MIXED",
-                chapterId = "neet_full_mock",
-                chapterName = testTitle,
-                totalQuestions = testQuestions.size,
-                correctAnswers = correctCount,
-                timeTakenSeconds = timeSpentSeconds,
-                mode = "MOCK_TEST",
-                strongTopics = strong,
-                weakTopics = weak
+                com.example.data.local.entity.QuizAttemptRecordEntity(
+                    title = testTitle,
+                    examId = "NEET",
+                    subjectName = "Mixed",
+                    chapterName = testTitle,
+                    totalQuestions = testQuestions.size,
+                    correctCount = correctCount,
+                    scorePercentage = accuracy,
+                    strongTopicsJson = strong.joinToString(",", "[", "]") { "\"$it\"" },
+                    weakTopicsJson = weak.joinToString(",", "[", "]") { "\"$it\"" }
+                )
             )
 
             // Also record individual question attempts
             testQuestions.forEachIndexed { idx, q ->
                 val selected = selectedOptions[idx]
+                val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
                 if (selected != null) {
-                    val isCorr = selected == q.correctOption
+                    val isCorr = selected == correctOptKey
                     viewModel.recordQuestionAttempt(
-                        questionId = q.id,
-                        chapterId = q.chapterId,
-                        subjectId = q.subjectId,
-                        topicName = q.topicName,
-                        selectedOption = selected,
-                        isCorrect = isCorr,
-                        timeTakenSeconds = timeSpentSeconds / answeredCount.coerceAtLeast(1)
+                        com.example.data.local.entity.QuestionAttemptRecordEntity(
+                            examId = "NEET",
+                            subjectName = q.subjectName,
+                            chapterName = q.chapterName,
+                            topicName = q.topicName,
+                            questionText = q.questionText,
+                            selectedOptionIndex = listOf("A", "B", "C", "D").indexOf(selected),
+                            correctOptionIndex = q.correctOptionIndex,
+                            isCorrect = isCorr,
+                            timeSpentSeconds = timeSpentSeconds / answeredCount.coerceAtLeast(1),
+                            quizType = "MOCK_TEST"
+                        )
                     )
                 }
             }
@@ -524,7 +530,7 @@ fun MockTestScreen(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "${currentQuestion.subjectId} • ${currentQuestion.topicName}",
+                                    text = "${currentQuestion.subjectName} • ${currentQuestion.topicName}",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF94A3B8),
@@ -583,12 +589,9 @@ fun MockTestScreen(
                     }
 
                     // Options A, B, C, D (No green/red feedback during test)
-                    val options = listOf(
-                        "A" to currentQuestion.optionA,
-                        "B" to currentQuestion.optionB,
-                        "C" to currentQuestion.optionC,
-                        "D" to currentQuestion.optionD
-                    )
+                    val options = currentQuestion.options.mapIndexed { idx, optText ->
+                        listOf("A", "B", "C", "D").getOrElse(idx) { "A" } to optText
+                    }
 
                     items(options.size) { idx ->
                         val (optKey, optText) = options[idx]
@@ -709,7 +712,7 @@ private fun TestResultsView(
     correctCount: Int,
     incorrectCount: Int,
     unattemptedCount: Int,
-    questions: List<QuestionEntity>,
+    questions: List<NeetQuestion>,
     selectedOptions: Map<Int, String>,
     onReviewAnswers: () -> Unit,
     onPracticeWeak: (String) -> Unit,
@@ -718,7 +721,8 @@ private fun TestResultsView(
 ) {
     // Identify weak topics from incorrect attempts
     val weakTopics = questions.filterIndexed { idx, q ->
-        selectedOptions[idx] != null && selectedOptions[idx] != q.correctOption
+        val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
+        selectedOptions[idx] != null && selectedOptions[idx] != correctOptKey
     }.map { it.topicName }.distinct()
 
     val minutes = timeSpentSeconds / 60
@@ -887,7 +891,7 @@ private fun TestResultsView(
 
 @Composable
 private fun ReviewAnswersView(
-    questions: List<QuestionEntity>,
+    questions: List<NeetQuestion>,
     selectedOptions: Map<Int, String>,
     onCloseReview: () -> Unit,
     modifier: Modifier = Modifier
@@ -919,8 +923,9 @@ private fun ReviewAnswersView(
 
         items(questions.size) { idx ->
             val q = questions[idx]
+            val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
             val userSelected = selectedOptions[idx]
-            val isCorrect = userSelected == q.correctOption
+            val isCorrect = userSelected == correctOptKey
 
             Card(
                 modifier = Modifier
@@ -976,13 +981,9 @@ private fun ReviewAnswersView(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Options list showing correct vs user choice
-                    listOf(
-                        "A" to q.optionA,
-                        "B" to q.optionB,
-                        "C" to q.optionC,
-                        "D" to q.optionD
-                    ).forEach { (optKey, optText) ->
-                        val isCorrectOpt = optKey == q.correctOption
+                    q.options.forEachIndexed { optIdx, optText ->
+                        val optKey = listOf("A", "B", "C", "D").getOrElse(optIdx) { "A" }
+                        val isCorrectOpt = optIdx == q.correctOptionIndex
                         val isUserChoice = optKey == userSelected
 
                         val borderColor = when {

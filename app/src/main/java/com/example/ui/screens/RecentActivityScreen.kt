@@ -110,14 +110,14 @@ fun RecentActivityScreen(
         }
 
         quizAttempts.forEach { qa ->
-            val acc = if (qa.totalQuestions > 0) ((qa.correctAnswers.toFloat() / qa.totalQuestions) * 100).toInt() else 0
+            val acc = qa.scorePercentage
             list.add(
                 UnifiedActivityItem.QuizTest(
                     quizId = qa.id,
                     chapterName = qa.chapterName,
-                    subjectId = qa.subjectId,
+                    subjectId = qa.subjectName,
                     totalQuestions = qa.totalQuestions,
-                    correctAnswers = qa.correctAnswers,
+                    correctAnswers = qa.correctCount,
                     accuracy = acc,
                     dateMs = qa.timestamp
                 )

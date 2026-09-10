@@ -91,12 +91,12 @@ fun AiPerformanceCoachScreen(
     if (showScheduleDialog) {
         AddToScheduleDialog(
             exam = "NEET",
-            subject = topWeakTopic?.subjectId?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Physics",
+            subject = topWeakTopic?.subjectName?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Physics",
             initialTopic = "Revision: ${topWeakTopic?.topicName ?: "Kirchhoff's Laws"}",
             onDismiss = { showScheduleDialog = false },
             onConfirm = { day, start, end, duration, focusMode, alarm, protection ->
                 viewModel.scheduleLearningSession(
-                    subjectName = topWeakTopic?.subjectId?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Physics",
+                    subjectName = topWeakTopic?.subjectName?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Physics",
                     topicName = "Revision: ${topWeakTopic?.topicName ?: "Kirchhoff's Laws"}",
                     dayOfWeek = day,
                     startTime = start,
