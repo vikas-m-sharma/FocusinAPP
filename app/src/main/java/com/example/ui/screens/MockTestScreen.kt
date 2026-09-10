@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -54,6 +56,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -114,8 +118,31 @@ fun MockTestScreen(
     var showScheduleDialog by remember { mutableStateOf(false) }
     var schedulePrefillTopic by remember { mutableStateOf("") }
 
-    // Test duration: 20 minutes countdown
-    val totalTimeSeconds = 20 * 60L
+    val context = LocalContext.current
+    val isPwDTest = remember(testTitle) {
+        testTitle.contains("PwD", ignoreCase = true) || testTitle.contains("Accessible", ignoreCase = true)
+    }
+
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var isTtsReady by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        var speech: TextToSpeech? = null
+        speech = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                speech?.language = Locale.ENGLISH
+                isTtsReady = true
+            }
+        }
+        tts = speech
+        onDispose {
+            speech.stop()
+            speech.shutdown()
+        }
+    }
+
+    // Test duration: 20 minutes countdown (or 35 minutes for PwD compensatory time)
+    val totalTimeSeconds = remember(isPwDTest) { if (isPwDTest) 35 * 60L else 20 * 60L }
     val startEpoch = remember { System.currentTimeMillis() }
     var remainingSeconds by remember { mutableLongStateOf(totalTimeSeconds) }
 
@@ -131,6 +158,20 @@ fun MockTestScreen(
     }
 
     val currentQuestion = testQuestions.getOrNull(currentIndex)
+
+    fun speakCurrentQuestion() {
+        val q = currentQuestion ?: return
+        val text = buildString {
+            append("Question ${currentIndex + 1}. ")
+            append(q.questionText)
+            append(". Options are: ")
+            q.options.forEachIndexed { i, opt ->
+                val label = listOf("A", "B", "C", "D").getOrElse(i) { "${i + 1}" }
+                append("Option $label: $opt. ")
+            }
+        }
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "q_${currentIndex}")
+    }
 
     // Results computation
     val answeredCount = selectedOptions.size
@@ -436,6 +477,18 @@ fun MockTestScreen(
                                     color = timerColor
                                 )
                             }
+                        }
+
+                        // Audio Read-Aloud for PwD / Accessibility
+                        IconButton(
+                            onClick = { speakCurrentQuestion() },
+                            modifier = Modifier.testTag("mock_test_tts_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolumeUp,
+                                contentDescription = "Read Aloud Question (PwD Assist)",
+                                tint = if (isPwDTest) Color(0xFF10B981) else CyanPrimary
+                            )
                         }
 
                         // Question Palette Button

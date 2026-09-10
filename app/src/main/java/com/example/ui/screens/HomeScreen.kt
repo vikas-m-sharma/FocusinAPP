@@ -110,11 +110,8 @@ fun HomeScreen(
     onNavigateToSchedule: () -> Unit,
     onNavigateToFocus: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToPreparation: () -> Unit,
     onOpenCreateSession: () -> Unit
 ) {
-    val currentTime by viewModel.currentTimeString.collectAsState()
-    val currentGreeting by viewModel.currentGreeting.collectAsState()
     val activeSession by viewModel.activeSessionState.collectAsState()
     val todayStats by viewModel.todayStats.collectAsState()
     val userSettings by viewModel.userSettings.collectAsState()
@@ -122,10 +119,6 @@ fun HomeScreen(
     val todaySessions by viewModel.todaySessions.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
 
-    val aiMessage by viewModel.aiAssistantMessage.collectAsState()
-    val isAiSpeaking by viewModel.isAiAssistantSpeaking.collectAsState()
-    val isAiActive by viewModel.isAiAssistantActive.collectAsState()
-    val isSocialLocked by viewModel.isSocialAppsLocked.collectAsState()
     val ringingSession by viewModel.isRingingSession.collectAsState()
     val aiNavRoute by viewModel.aiRequestedNavigation.collectAsState()
 
@@ -377,14 +370,7 @@ fun HomeScreen(
                 )
             }
 
-            // 6. CONTINUE LEARNING
-            item {
-                ContinueLearningCard(
-                    onContinue = onNavigateToPreparation
-                )
-            }
-
-            // 7. TODAY'S SCHEDULE
+            // 6. TODAY'S SCHEDULE
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -890,70 +876,6 @@ fun CurrentOrNextSessionCard(
                 ) {
                     Text("Create Session", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
-            }
-        }
-    }
-}
-
-// --- CONTINUE LEARNING CARD ---
-@Composable
-fun ContinueLearningCard(
-    onContinue: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onContinue() },
-        colors = CardDefaults.cardColors(containerColor = Slate900),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "CONTINUE LEARNING",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = Color(0xFF94A3B8)
-                )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(CyanPrimary.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text("NEET", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyanPrimary)
-                }
-            }
-            Text(
-                text = "Physics • Current Electricity",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "62% complete",
-                    fontSize = 13.sp,
-                    color = Color(0xFF94A3B8)
-                )
-                Text(
-                    text = "Continue →",
-                    color = CyanPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
             }
         }
     }

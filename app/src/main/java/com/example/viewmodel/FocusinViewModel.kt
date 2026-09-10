@@ -77,53 +77,53 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
     // Database Flows
     val subjects: StateFlow<List<SubjectEntity>> = repository.allSubjects
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val allSessions: StateFlow<List<TimetableSessionEntity>> = repository.allTimetableSessions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val historyRecords: StateFlow<List<FocusSessionRecordEntity>> = repository.allRecords
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentWeekStats: StateFlow<List<DailyStatsEntity>> = repository.recentWeekStats
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentMonthStats: StateFlow<List<DailyStatsEntity>> = repository.recentMonthStats
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentYearStats: StateFlow<List<DailyStatsEntity>> = repository.recentYearStats
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val voiceRecordings: StateFlow<List<VoiceRecordingEntity>> = repository.allVoiceRecordings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val achievements: StateFlow<List<AchievementEntity>> = repository.allAchievements
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val userSettings: StateFlow<UserSettingsEntity?> = repository.userSettings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val todayStats: StateFlow<DailyStatsEntity?> = repository.getTodayStats()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val chapterProgressList: StateFlow<List<ChapterProgressEntity>> = repository.allChapterProgress
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val questionAttemptsList: StateFlow<List<QuestionAttemptRecordEntity>> = repository.allQuestionAttempts
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val quizAttemptsList: StateFlow<List<QuizAttemptRecordEntity>> = repository.allQuizAttempts
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val allQuestionAttempts: StateFlow<List<QuestionAttemptRecordEntity>> = questionAttemptsList
     val allQuizAttempts: StateFlow<List<QuizAttemptRecordEntity>> = quizAttemptsList
     val allChapterProgress: StateFlow<List<ChapterProgressEntity>> = chapterProgressList
 
     val totalQuestionsAttempted: StateFlow<Int> = questionAttemptsList.map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val totalQuestionsCorrect: StateFlow<Int> = questionAttemptsList.map { attempts -> attempts.count { it.isCorrect } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val calculatedWeakTopics: StateFlow<List<WeakTopicInfo>> = questionAttemptsList.map { attempts ->
         if (attempts.isEmpty()) emptyList()
@@ -145,7 +145,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
                 } else null
             }.sortedBy { it.accuracy }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val activeSessionState: StateFlow<ActiveSessionState> = FocusSessionService.sessionState
 
@@ -158,7 +158,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         val currentDay = getCurrentDayOfWeek()
         sessions.filter { it.dayOfWeek == currentDay && it.isEnabled }
             .sortedBy { it.startTime }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val nextSession: StateFlow<TimetableSessionEntity?> = todaySessions.combine(activeSessionState) { sessions, active ->
         if (active.isActive) {
@@ -167,7 +167,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
             val nowTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             sessions.firstOrNull { it.endTime > nowTime } ?: sessions.firstOrNull()
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // AI States
     private val _isAiGenerating = MutableStateFlow(false)

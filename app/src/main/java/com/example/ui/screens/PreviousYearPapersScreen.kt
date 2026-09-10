@@ -79,13 +79,15 @@ fun PreviousYearPapersScreen(
     val sampleChapter = com.example.data.model.neetPhysicsChapters.firstOrNull()
     var selectedFilterYear by remember { mutableStateOf("ALL") }
 
-    val papers = listOf(
-        PyqPaperModel("NEET 2025", "NEET (UG) 2025 Question Paper", 180, "3h 20m"),
-        PyqPaperModel("NEET 2024", "NEET (UG) 2024 Question Paper", 180, "3h 20m"),
-        PyqPaperModel("NEET 2023", "NEET (UG) 2023 Question Paper", 180, "3h 20m"),
-        PyqPaperModel("NEET 2022", "NEET (UG) 2022 Question Paper", 180, "3h 20m"),
-        PyqPaperModel("NEET 2021", "NEET (UG) 2021 Question Paper", 180, "3h 00m")
-    )
+    val papers = neet15YearsPdfArchive.map {
+        PyqPaperModel(
+            year = "NEET ${it.year}",
+            title = it.title,
+            questionsCount = it.questionsCount,
+            durationText = it.durationText,
+            isOfficial = it.isOfficialNta
+        )
+    }
 
     val displayedPapers = if (selectedFilterYear == "ALL") papers else papers.filter { it.year.contains(selectedFilterYear) }
 
@@ -130,11 +132,12 @@ fun PreviousYearPapersScreen(
         ) {
             // Filter Pills
             item {
-                Row(
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf("ALL", "2025", "2024", "2023", "2022", "2021").forEach { yr ->
+                    val yearFilters = listOf("ALL", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011")
+                    items(yearFilters) { yr ->
                         val isSel = selectedFilterYear == yr
                         Surface(
                             modifier = Modifier
@@ -155,64 +158,10 @@ fun PreviousYearPapersScreen(
                 }
             }
 
-            // Chapter-wise PYQ shortcut card
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Slate900),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.MenuBook, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(22.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Chapter-wise PYQs",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "Solve past questions chapter by chapter",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Button(
-                            onClick = {
-                                if (sampleChapter != null) {
-                                    onNavigateToChapterPyq(sampleChapter.id)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary.copy(alpha = 0.15f)),
-                            border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.4f)),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Browse Chapter PYQ Library →", color = CyanPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
-
             // Full Papers Section
             item {
                 Text(
-                    text = "Full Question Papers",
+                    text = "NEET Official 15-Year Papers",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,

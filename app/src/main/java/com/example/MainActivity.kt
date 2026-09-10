@@ -57,8 +57,6 @@ import com.example.ui.screens.MockTestScreen
 import com.example.ui.screens.MyPracticeScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PerformanceScreen
-import com.example.ui.screens.PreparationScreen
-import com.example.ui.screens.PrepareScreen
 import com.example.ui.screens.PreviousYearPapersScreen
 import com.example.ui.screens.ProgressComparisonScreen
 import com.example.ui.screens.QuestionBankScreen
@@ -125,11 +123,10 @@ fun FocusinApp(viewModel: FocusinViewModel) {
     val userSettings by viewModel.userSettings.collectAsState()
     val isUserLoggedIn by viewModel.isUserLoggedIn.collectAsState()
 
-    // Determine if bottom navigation should be visible (5 primary tabs)
+    // Determine if bottom navigation should be visible (4 primary tabs)
     val showBottomNav = isUserLoggedIn && currentRoute in listOf(
         Screen.Home.route,
         Screen.Schedule.route,
-        Screen.Prepare.route,
         Screen.QuestionBank.route,
         Screen.Performance.route
     )
@@ -232,7 +229,6 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                     onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                    onNavigateToPreparation = { navController.navigate(Screen.Preparation.route) },
                     onOpenCreateSession = { navController.navigate(Screen.Schedule.route) }
                 )
             }
@@ -325,32 +321,6 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                 )
             }
 
-            composable(Screen.Preparation.route) {
-                PrepareScreen(
-                    viewModel = viewModel,
-                    onNavigateToSubject = { subjectId ->
-                        navController.navigate(Screen.SubjectChapters.createRoute(subjectId))
-                    },
-                    onNavigateToChapter = { chapterId ->
-                        navController.navigate(Screen.ChapterDetail.createRoute(chapterId))
-                    },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
-                )
-            }
-
-            composable(Screen.Prepare.route) {
-                PrepareScreen(
-                    viewModel = viewModel,
-                    onNavigateToSubject = { subjectId ->
-                        navController.navigate(Screen.SubjectChapters.createRoute(subjectId))
-                    },
-                    onNavigateToChapter = { chapterId ->
-                        navController.navigate(Screen.ChapterDetail.createRoute(chapterId))
-                    },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
-                )
-            }
-
             composable(
                 route = Screen.SubjectChapters.route,
                 arguments = listOf(navArgument("subjectId") { type = NavType.StringType })
@@ -387,23 +357,8 @@ fun FocusinApp(viewModel: FocusinViewModel) {
             composable(Screen.QuestionBank.route) {
                 QuestionBankScreen(
                     viewModel = viewModel,
-                    onNavigateToSubject = { subjectId ->
-                        navController.navigate(Screen.SubjectChapters.createRoute(subjectId))
-                    },
-                    onNavigateToPyq = {
-                        navController.navigate(Screen.PreviousYearPapers.route)
-                    },
-                    onNavigateToAiQuiz = { chapterId ->
-                        navController.navigate(Screen.AiQuizGenerator.createRoute(chapterId))
-                    },
-                    onNavigateToMockTest = { testTitle ->
+                    onNavigateToSolvePaper = { testTitle ->
                         navController.navigate(Screen.MockTest.createRoute(testTitle))
-                    },
-                    onNavigateToMyPractice = {
-                        navController.navigate(Screen.MyPractice.route)
-                    },
-                    onNavigateToBookmarks = {
-                        navController.navigate(Screen.Bookmarks.route)
                     },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )

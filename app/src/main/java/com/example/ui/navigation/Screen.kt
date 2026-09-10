@@ -10,17 +10,15 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
-    // 5 Primary Bottom Navigation Destinations
+    // Primary Bottom Navigation Destinations
     object Home : Screen("home", "Home", Icons.Default.Home)
     object Schedule : Screen("schedule", "Schedule", Icons.Default.DateRange)
-    object Prepare : Screen("prepare", "Prepare", Icons.Default.School)
     object QuestionBank : Screen("question_bank", "QBank", Icons.Default.Quiz)
     object Performance : Screen("performance", "Performance", Icons.Default.BarChart)
 
     // Aliases for compatibility
     val Timetable get() = Schedule
     val Analytics get() = Performance
-    val Preparation get() = Prepare
 
     // Secondary Flow Screens
     object Focus : Screen("focus", "Focus")
@@ -69,15 +67,13 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         val Timetable = Schedule
         val Analytics = Performance
         val VoiceNotes = VoiceStudio
-        val Preparation = Prepare
     }
 }
 
-// Exactly 5 bottom navigation items
+// 4 primary bottom navigation items
 val bottomNavItems = listOf(
     Screen.Home,
     Screen.Schedule,
-    Screen.Prepare,
     Screen.QuestionBank,
     Screen.Performance
 )
