@@ -98,12 +98,13 @@ fun RecentActivityScreen(
         val list = mutableListOf<UnifiedActivityItem>()
 
         historyRecords.forEach { rec ->
+            val score = if (rec.isCompleted) (95 - rec.distractionCount * 5).coerceIn(40, 100) else (65 - rec.distractionCount * 5).coerceIn(30, 85)
             list.add(
                 UnifiedActivityItem.FocusSession(
                     subject = rec.subjectName,
                     durationMins = (rec.actualDurationSeconds / 60).toInt(),
-                    score = rec.focusScore,
-                    dateMs = rec.startTimestamp
+                    score = score,
+                    dateMs = rec.startTimeMillis
                 )
             )
         }
@@ -118,7 +119,7 @@ fun RecentActivityScreen(
                     totalQuestions = qa.totalQuestions,
                     correctAnswers = qa.correctAnswers,
                     accuracy = acc,
-                    dateMs = qa.attemptedAt
+                    dateMs = qa.timestamp
                 )
             )
         }

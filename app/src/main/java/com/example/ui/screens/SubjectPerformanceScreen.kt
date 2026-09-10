@@ -69,16 +69,16 @@ import com.example.viewmodel.FocusinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubjectPerformanceScreen(
-    subjectId: String,
+    subjectName: String,
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToChapterDetail: (String) -> Unit,
-    onNavigateToChapterPractice: (String) -> Unit
+    onNavigateToChapter: (String) -> Unit = {},
+    onNavigateToChapterPractice: (String) -> Unit = {}
 ) {
     val neetChapters by viewModel.neetChapters.collectAsState()
     val allQuestionAttempts by viewModel.allQuestionAttempts.collectAsState()
 
-    val cleanSubjectId = subjectId.uppercase()
+    val cleanSubjectId = subjectName.uppercase()
     val subjectChapters = neetChapters.filter { it.subjectId.equals(cleanSubjectId, ignoreCase = true) }
 
     val subjectAttempts = allQuestionAttempts.filter { it.subjectId.equals(cleanSubjectId, ignoreCase = true) }
@@ -212,7 +212,7 @@ fun SubjectPerformanceScreen(
                             }
                             Column {
                                 Text("Completed", fontSize = 11.sp, color = Color(0xFF94A3B8))
-                                val compChapters = subjectChapters.count { it.progressPercent >= 100 }
+                                val compChapters = subjectChapters.count { it.completionPercentage >= 100 }
                                 Text("$compChapters / ${subjectChapters.size}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = CyanPrimary)
                             }
                         }
@@ -270,7 +270,7 @@ fun SubjectPerformanceScreen(
                 } else if (chapter.name.contains("Current", ignoreCase = true)) {
                     54
                 } else {
-                    chapter.progressPercent.coerceIn(60, 95)
+                    chapter.completionPercentage.coerceIn(60, 95)
                 }
 
                 Card(
@@ -294,7 +294,7 @@ fun SubjectPerformanceScreen(
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = "${chapter.completedTopicsCount}/${chapter.totalTopicsCount} topics completed • ${chapter.totalQuestionsCount} questions",
+                                    text = "${chapter.completedTopics}/${chapter.totalTopics} topics completed • ${chapter.totalQuestions} questions",
                                     fontSize = 12.sp,
                                     color = Color(0xFF94A3B8)
                                 )
@@ -332,7 +332,7 @@ fun SubjectPerformanceScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { onNavigateToChapterDetail(chapter.id) },
+                                onClick = { onNavigateToChapter(chapter.id) },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                                 border = BorderStroke(1.dp, Slate700),

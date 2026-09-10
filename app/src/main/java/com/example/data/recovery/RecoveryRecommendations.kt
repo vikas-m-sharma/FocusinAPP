@@ -1,5 +1,13 @@
 package com.example.data.recovery
 
+data class RecoveryRecommendation(
+    val title: String,
+    val category: String,
+    val durationText: String,
+    val description: String,
+    val youtubeUrl: String
+)
+
 data class RecoveryItem(
     val title: String,
     val description: String,

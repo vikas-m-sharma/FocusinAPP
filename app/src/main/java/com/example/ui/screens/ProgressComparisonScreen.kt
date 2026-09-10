@@ -268,7 +268,7 @@ private fun ComparisonMetricCard(
             Column {
                 Text(title, fontSize = 12.sp, color = Color(0xFF94A3B8))
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.Baseline) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = currentValue,
                         fontSize = 20.sp,

@@ -102,8 +102,9 @@ fun AiPerformanceCoachScreen(
                     startTime = start,
                     endTime = end,
                     durationMinutes = duration,
-                    focusProtection = protection,
-                    startAlarm = alarm
+                    focusModeEnabled = focusMode,
+                    alarmEnabled = alarm,
+                    protectionLevel = protection
                 )
                 showScheduleDialog = false
             }

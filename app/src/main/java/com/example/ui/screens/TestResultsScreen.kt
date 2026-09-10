@@ -157,7 +157,7 @@ fun TestResultsScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         val formattedDate = try {
                             val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
-                            sdf.format(Date(attempt?.attemptedAt ?: System.currentTimeMillis()))
+                            sdf.format(Date(attempt?.timestamp ?: System.currentTimeMillis()))
                         } catch (_: Exception) {
                             "Recent Attempt"
                         }

@@ -67,7 +67,8 @@ import com.example.viewmodel.FocusinViewModel
 @Composable
 fun LearningAnalyticsScreen(
     viewModel: FocusinViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onStartPractice: (String) -> Unit = {}
 ) {
     var selectedPeriod by remember { mutableStateOf("WEEK") }
 
