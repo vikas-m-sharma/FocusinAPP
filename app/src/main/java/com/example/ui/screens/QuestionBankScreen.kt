@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,58 +19,48 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Spa
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Quiz
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.example.data.local.entity.QuestionAttemptRecordEntity
+import com.example.data.model.NeetQuestion
+import com.example.data.model.neetBiologyChapters
+import com.example.data.model.neetChemistryChapters
+import com.example.data.model.neetPhysicsChapters
+import com.example.data.model.officialPyqPapers
+import com.example.data.model.sampleNeetQuestions
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.RoseError
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
-import com.example.ui.theme.Slate850
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.Slate950
 import com.example.viewmodel.FocusinViewModel
@@ -81,40 +69,20 @@ import com.example.viewmodel.FocusinViewModel
 @Composable
 fun QuestionBankScreen(
     viewModel: FocusinViewModel,
-    onNavigateToSubject: (String) -> Unit = {},
-    onNavigateToPreviousYearPapers: () -> Unit = {},
-    onNavigateToAiQuiz: (String) -> Unit = {},
-    onNavigateToMockTests: () -> Unit = {},
-    onNavigateToMyPractice: () -> Unit = {},
-    onNavigateToBookmarks: () -> Unit = {},
-    onNavigateToWeakTopics: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit
 ) {
-    val neetChapters by viewModel.neetChapters.collectAsState()
-    val totalAttempted by viewModel.totalQuestionsAttempted.collectAsState()
-    val totalCorrect by viewModel.totalQuestionsCorrect.collectAsState()
-    val mockTestsCount by viewModel.totalMockTestsCount.collectAsState()
-    val allQuestionAttempts by viewModel.allQuestionAttempts.collectAsState()
-    val weakTopics by viewModel.calculatedWeakTopics.collectAsState()
+    val questionAttempts by viewModel.questionAttemptsList.collectAsState()
+    val quizAttempts by viewModel.quizAttemptsList.collectAsState()
 
-    var selectedExam by remember { mutableStateOf("NEET") }
-    var searchQuery by remember { mutableStateOf("") }
-    var isSearchActive by remember { mutableStateOf(false) }
+    var activeTab by remember { mutableStateOf("SUBJECTS") } // "SUBJECTS", "PYQ", "AI_QUIZ"
+    var selectedSubjectName by remember { mutableStateOf<String?>(null) }
+    var selectedQuestionForPractice by remember { mutableStateOf<NeetQuestion?>(null) }
 
-    val totalAccuracy = if (totalAttempted > 0) ((totalCorrect.toFloat() / totalAttempted) * 100).toInt() else 0
-
-    // Compute subject stats
-    val physicsAttempts = allQuestionAttempts.filter { it.subjectId == "PHYSICS" }
-    val chemistryAttempts = allQuestionAttempts.filter { it.subjectId == "CHEMISTRY" }
-    val biologyAttempts = allQuestionAttempts.filter { it.subjectId == "BIOLOGY" }
-
-    val physicsAccuracy = if (physicsAttempts.isNotEmpty()) ((physicsAttempts.count { it.isCorrect }.toFloat() / physicsAttempts.size) * 100).toInt() else 0
-    val chemistryAccuracy = if (chemistryAttempts.isNotEmpty()) ((chemistryAttempts.count { it.isCorrect }.toFloat() / chemistryAttempts.size) * 100).toInt() else 0
-    val biologyAccuracy = if (biologyAttempts.isNotEmpty()) ((biologyAttempts.count { it.isCorrect }.toFloat() / biologyAttempts.size) * 100).toInt() else 0
-
-    val physicsChaptersCount = neetChapters.count { it.subjectId == "PHYSICS" }
-    val chemistryChaptersCount = neetChapters.count { it.subjectId == "CHEMISTRY" }
-    val biologyChaptersCount = neetChapters.count { it.subjectId == "BIOLOGY" }
+    val subjectsData = listOf(
+        Triple("Physics", "45 Chapters • 12,500+ Questions", neetPhysicsChapters),
+        Triple("Chemistry", "48 Chapters • 14,000+ Questions", neetChemistryChapters),
+        Triple("Biology", "47 Chapters • 18,000+ Questions", neetBiologyChapters)
+    )
 
     Scaffold(
         containerColor = Slate950,
@@ -127,37 +95,15 @@ fun QuestionBankScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Question Bank",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            text = "QUESTION BANK",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
                         )
                         Text(
                             text = "Practice. Analyze. Improve.",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             color = Color(0xFF94A3B8)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { isSearchActive = !isSearchActive },
-                        modifier = Modifier.testTag("search_toggle_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = if (isSearchActive) CyanPrimary else Color(0xFF94A3B8)
-                        )
-                    }
-                    IconButton(
-                        onClick = onNavigateToSettings,
-                        modifier = Modifier.testTag("settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = Color(0xFF94A3B8)
                         )
                     }
                 }
@@ -168,621 +114,443 @@ fun QuestionBankScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp),
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Search Bar when active
-            if (isSearchActive) {
-                item {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("qbank_search_input"),
-                        placeholder = { Text("Search topics, chapters, formulas...", color = Color(0xFF64748B), fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = CyanPrimary) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanPrimary,
-                            unfocusedBorderColor = Slate800,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedContainerColor = Slate900,
-                            unfocusedContainerColor = Slate900
-                        )
-                    )
-                }
-            }
-
-            // Exam Selector Pills
+            // Mode Tabs Row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ExamPill(
-                        title = "NEET",
-                        isActive = selectedExam == "NEET",
-                        onClick = { selectedExam = "NEET" }
-                    )
-                    ExamPill(
-                        title = "JEE",
-                        badge = "Soon",
-                        isActive = false,
-                        onClick = { }
-                    )
-                    ExamPill(
-                        title = "Boards",
-                        badge = "Soon",
-                        isActive = false,
-                        onClick = { }
-                    )
-                }
-            }
-
-            // Practice Journey Card
-            item {
-                PracticeJourneyCard(
-                    attempted = totalAttempted,
-                    accuracy = totalAccuracy,
-                    testsCompleted = mockTestsCount,
-                    onStartPractice = { onNavigateToSubject("PHYSICS") }
-                )
-            }
-
-            // Weak Topics Alert Card (if any identified)
-            if (weakTopics.isNotEmpty()) {
-                item {
-                    val topWeak = weakTopics.first()
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateToWeakTopics() }
-                            .border(1.dp, RoseError.copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Slate900),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
+                    listOf("SUBJECTS" to "📚 Chapters", "PYQ" to "📝 Official PYQs", "AI_QUIZ" to "🤖 AI Quiz").forEach { (key, label) ->
+                        val isSel = activeTab == key
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSel) CyanPrimary else Slate900)
+                                .clickable { activeTab = key }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(RoseError.copy(alpha = 0.12f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Speed,
-                                        contentDescription = null,
-                                        tint = RoseError,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "Target Weak Area",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = RoseError
-                                    )
-                                    Text(
-                                        text = "${topWeak.topicName} (${topWeak.accuracy}%)",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Slate800,
-                                modifier = Modifier.padding(start = 8.dp)
-                            ) {
-                                Text(
-                                    text = "Practice",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = CyanPrimary,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSel) Slate950 else Color.White
+                            )
                         }
                     }
                 }
             }
 
-            // Subjects Section
-            item {
-                Text(
-                    text = "Subjects",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                )
-            }
+            if (activeTab == "SUBJECTS") {
+                if (selectedSubjectName == null) {
+                    // Subject List
+                    subjectsData.forEach { (subName, subSubtitle, _) ->
+                        item {
+                            val subAttempts = questionAttempts.filter { it.subjectName == subName }
+                            val correctAttempts = subAttempts.count { it.isCorrect }
+                            val accuracyPct = if (subAttempts.isNotEmpty()) (correctAttempts * 100 / subAttempts.size) else 0
 
-            // Physics Card
-            item {
-                SubjectQBankCard(
-                    subjectName = "Physics",
-                    subtitle = "$physicsChaptersCount Chapters",
-                    icon = Icons.Default.Science,
-                    accentColor = Color(0xFF38BDF8),
-                    attemptedCount = physicsAttempts.size,
-                    accuracyPercent = physicsAccuracy,
-                    onClick = { onNavigateToSubject("PHYSICS") }
-                )
-            }
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Slate800, RoundedCornerShape(16.dp))
+                                    .clickable { selectedSubjectName = subName },
+                                colors = CardDefaults.cardColors(containerColor = Slate900),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(CircleShape)
+                                                    .background(CyanPrimary.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Quiz,
+                                                    contentDescription = null,
+                                                    tint = CyanPrimary,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(subName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                Text(subSubtitle, fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                            }
+                                        }
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = "Open",
+                                            tint = CyanPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
 
-            // Chemistry Card
-            item {
-                SubjectQBankCard(
-                    subjectName = "Chemistry",
-                    subtitle = "$chemistryChaptersCount Chapters",
-                    icon = Icons.Default.Science,
-                    accentColor = Color(0xFFA78BFA),
-                    attemptedCount = chemistryAttempts.size,
-                    accuracyPercent = chemistryAccuracy,
-                    onClick = { onNavigateToSubject("CHEMISTRY") }
-                )
-            }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Attempted: ${subAttempts.size}", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                        Text("Accuracy: $accuracyPct%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldSuccess)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Chapter List for Selected Subject
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { selectedSubjectName = null }
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CyanPrimary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Back to All Subjects ($selectedSubjectName)", fontSize = 13.sp, color = CyanPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
 
-            // Biology Card
-            item {
-                SubjectQBankCard(
-                    subjectName = "Biology",
-                    subtitle = "$biologyChaptersCount Chapters",
-                    icon = Icons.Default.Spa,
-                    accentColor = Color(0xFF34D399),
-                    attemptedCount = biologyAttempts.size,
-                    accuracyPercent = biologyAccuracy,
-                    onClick = { onNavigateToSubject("BIOLOGY") }
-                )
-            }
+                    val selectedSubjectTriple = subjectsData.find { it.first == selectedSubjectName }
+                    val chapterList = selectedSubjectTriple?.third ?: emptyList()
 
-            // 5 Main Practice Options
-            item {
-                Text(
-                    text = "Practice Modes & Tools",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                )
-            }
+                    chapterList.forEach { chap ->
+                        item {
+                            val chapAttempts = questionAttempts.filter { it.chapterName == chap.name }
+                            val correct = chapAttempts.count { it.isCorrect }
+                            val accuracy = if (chapAttempts.isNotEmpty()) (correct * 100 / chapAttempts.size) else 0
 
-            item {
-                PracticeOptionRow(
-                    title = "Previous Year Papers",
-                    description = "NEET 2015 – 2025 official question papers",
-                    badge = "High Yield",
-                    icon = Icons.Default.MenuBook,
-                    iconTint = CyanPrimary,
-                    onClick = onNavigateToPreviousYearPapers
-                )
-            }
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Slate800, RoundedCornerShape(14.dp)),
+                                colors = CardDefaults.cardColors(containerColor = Slate900),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(chap.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("${chap.topics.size} Topics • ${chap.totalQuestionsCount}+ Questions", fontSize = 11.sp, color = Color(0xFF94A3B8))
 
-            item {
-                PracticeOptionRow(
-                    title = "AI Quiz Generator",
-                    description = "Custom quizzes for any topic or difficulty",
-                    badge = "AI Powered",
-                    icon = Icons.Default.AutoAwesome,
-                    iconTint = Color(0xFFA78BFA),
-                    onClick = { onNavigateToAiQuiz("ALL") }
-                )
-            }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Accuracy: $accuracy%", fontSize = 11.sp, color = EmeraldSuccess, fontWeight = FontWeight.Bold)
 
-            item {
-                PracticeOptionRow(
-                    title = "Mock Tests",
-                    description = "Full syllabus timed tests with detailed results",
-                    badge = "Simulated",
-                    icon = Icons.Default.Timer,
-                    iconTint = EmeraldSuccess,
-                    onClick = onNavigateToMockTests
-                )
-            }
+                                        Button(
+                                            onClick = {
+                                                val matchedQ = sampleNeetQuestions.find { it.subjectName == selectedSubjectName } ?: sampleNeetQuestions.first()
+                                                selectedQuestionForPractice = matchedQ.copy(chapterName = chap.name)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("Practice", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate950)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (activeTab == "PYQ") {
+                // Official PYQs
+                item {
+                    Text("NEET UG Official Previous Year Papers", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
 
-            item {
-                PracticeOptionRow(
-                    title = "My Practice",
-                    description = "View your question history and performance",
-                    badge = null,
-                    icon = Icons.Default.History,
-                    iconTint = Color(0xFF38BDF8),
-                    onClick = onNavigateToMyPractice
-                )
-            }
+                officialPyqPapers.forEach { paper ->
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Slate800, RoundedCornerShape(14.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(paper.examName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("180 Questions • 200 Minutes • Official Exam", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                }
 
-            item {
-                PracticeOptionRow(
-                    title = "Bookmarks",
-                    description = "Saved tricky and essential questions",
-                    badge = null,
-                    icon = Icons.Default.Bookmark,
-                    iconTint = Color(0xFFFBBF24),
-                    onClick = onNavigateToBookmarks
-                )
-            }
+                                Button(
+                                    onClick = {
+                                        selectedQuestionForPractice = sampleNeetQuestions.first()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Practice", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate950)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (activeTab == "AI_QUIZ") {
+                // AI Quiz Generator
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, CyanPrimary, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Slate900),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = CyanPrimary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("AI QUIZ GENERATOR", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("Generate custom practice quizzes powered by Gemini AI", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                }
+                            }
 
-            item {
-                PracticeOptionRow(
-                    title = "Weak Topic Engine",
-                    description = "Target topics where accuracy is below 65%",
-                    badge = if (weakTopics.isNotEmpty()) "${weakTopics.size} Topics" else null,
-                    icon = Icons.Default.Psychology,
-                    iconTint = RoseError,
-                    onClick = onNavigateToWeakTopics
-                )
-            }
-        }
-    }
-}
+                            Button(
+                                onClick = {
+                                    viewModel.generateGoalPlanWithAi("Generate 5 practice questions for NEET Physics Current Electricity")
+                                    selectedQuestionForPractice = sampleNeetQuestions.first()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("⚡ GENERATE AI QUIZ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Slate950)
+                            }
+                        }
+                    }
+                }
 
-@Composable
-fun ExamPill(
-    title: String,
-    badge: String? = null,
-    isActive: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .clickable(enabled = badge == null, onClick = onClick)
-            .border(
-                1.dp,
-                if (isActive) CyanPrimary else Slate800,
-                RoundedCornerShape(24.dp)
-            ),
-        shape = RoundedCornerShape(24.dp),
-        color = if (isActive) CyanPrimary.copy(alpha = 0.15f) else Slate900
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                color = if (isActive) CyanPrimary else Color(0xFF94A3B8)
-            )
-            if (badge != null) {
-                Surface(
-                    color = Slate800,
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        text = badge,
-                        fontSize = 10.sp,
-                        color = Color(0xFF64748B),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                item {
+                    Text("Recent Quiz Attempts (${quizAttempts.size})", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                quizAttempts.forEach { q ->
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Slate800, RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(q.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("${q.correctCount} / ${q.totalQuestions} Correct", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                }
+                                Text("${q.scorePercentage}%", fontSize = 16.sp, fontWeight = FontWeight.Black, color = EmeraldSuccess)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+
+    // Question Practice Dialog
+    selectedQuestionForPractice?.let { q ->
+        QuestionPracticeDialog(
+            question = q,
+            onDismiss = { selectedQuestionForPractice = null },
+            onSubmitAnswer = { selectedIndex, isCorrect ->
+                viewModel.recordQuestionAttempt(
+                    QuestionAttemptRecordEntity(
+                        subjectName = q.subjectName,
+                        chapterName = q.chapterName,
+                        topicName = q.topicName,
+                        questionText = q.questionText,
+                        selectedOptionIndex = selectedIndex,
+                        correctOptionIndex = q.correctOptionIndex,
+                        isCorrect = isCorrect
+                    )
+                )
+            }
+        )
+    }
 }
 
 @Composable
-fun PracticeJourneyCard(
-    attempted: Int,
-    accuracy: Int,
-    testsCompleted: Int,
-    onStartPractice: () -> Unit
+fun QuestionPracticeDialog(
+    question: NeetQuestion,
+    onDismiss: () -> Unit,
+    onSubmitAnswer: (Int, Boolean) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Slate800, RoundedCornerShape(18.dp)),
-        colors = CardDefaults.cardColors(containerColor = Slate900),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(
+    var selectedOptionIndex by remember { mutableIntStateOf(-1) }
+    var isSubmitted by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .border(1.dp, CyanPrimary, RoundedCornerShape(20.dp)),
+            colors = CardDefaults.cardColors(containerColor = Slate900),
+            shape = RoundedCornerShape(20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Your Practice Journey",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Surface(
-                    color = CyanPrimary.copy(alpha = 0.15f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "NEET 2026",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = CyanPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            if (attempted > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    JourneyStatItem(
-                        title = "Attempted",
-                        value = "$attempted",
-                        subValue = "Questions",
-                        color = CyanPrimary
-                    )
-                    JourneyStatItem(
-                        title = "Accuracy",
-                        value = "$accuracy%",
-                        subValue = if (accuracy >= 70) "Strong" else "Developing",
-                        color = if (accuracy >= 70) EmeraldSuccess else Color(0xFFFBBF24)
-                    )
-                    JourneyStatItem(
-                        title = "Tests",
-                        value = "$testsCompleted",
-                        subValue = "Completed",
-                        color = Color(0xFFA78BFA)
-                    )
-                }
-            } else {
-                Text(
-                    text = "Solve questions, track progress, and master every NCERT concept for NEET.",
-                    fontSize = 13.sp,
-                    color = Color(0xFF94A3B8),
-                    lineHeight = 18.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    modifier = Modifier
-                        .clickable(onClick = onStartPractice)
-                        .border(1.dp, CyanPrimary.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                    color = CyanPrimary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "Start Solving Questions →",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = CyanPrimary,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun JourneyStatItem(
-    title: String,
-    value: String,
-    subValue: String,
-    color: Color
-) {
-    Column(horizontalAlignment = Alignment.Start) {
-        Text(
-            text = title,
-            fontSize = 11.sp,
-            color = Color(0xFF94A3B8)
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = value,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = subValue,
-            fontSize = 10.sp,
-            color = Color(0xFF64748B)
-        )
-    }
-}
-
-@Composable
-fun SubjectQBankCard(
-    subjectName: String,
-    subtitle: String,
-    icon: ImageVector,
-    accentColor: Color,
-    attemptedCount: Int,
-    accuracyPercent: Int,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .border(1.dp, Slate800, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Slate900),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = subjectName,
-                        fontSize = 16.sp,
+                        text = "${question.subjectName} • ${question.chapterName}",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = CyanPrimary
                     )
-                    if (attemptedCount > 0) {
-                        Text(
-                            text = "$accuracyPercent% acc",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (accuracyPercent >= 65) EmeraldSuccess else Color(0xFFFBBF24)
-                        )
-                    }
+                    Text(question.difficulty, fontSize = 10.sp, color = Color(0xFF94A3B8))
                 }
-
-                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
-                    text = if (attemptedCount > 0) "$subtitle • $attemptedCount attempted" else "$subtitle • Not started",
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
+                    text = question.questionText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    lineHeight = 20.sp
                 )
 
-                if (attemptedCount > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { (accuracyPercent / 100f).coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(CircleShape),
-                        color = accentColor,
-                        trackColor = Slate800
-                    )
-                }
-            }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    question.options.forEachIndexed { index, optionText ->
+                        val isSelected = selectedOptionIndex == index
+                        val isCorrect = index == question.correctOptionIndex
 
-            Spacer(modifier = Modifier.width(12.dp))
+                        val bgColor = when {
+                            isSubmitted && isCorrect -> EmeraldSuccess.copy(alpha = 0.25f)
+                            isSubmitted && isSelected && !isCorrect -> RoseError.copy(alpha = 0.25f)
+                            isSelected -> CyanPrimary.copy(alpha = 0.2f)
+                            else -> Slate800
+                        }
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "Open",
-                tint = Color(0xFF64748B),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
+                        val borderColor = when {
+                            isSubmitted && isCorrect -> EmeraldSuccess
+                            isSubmitted && isSelected && !isCorrect -> RoseError
+                            isSelected -> CyanPrimary
+                            else -> Slate700
+                        }
 
-@Composable
-fun PracticeOptionRow(
-    title: String,
-    description: String,
-    badge: String?,
-    icon: ImageVector,
-    iconTint: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .border(1.dp, Slate800, RoundedCornerShape(14.dp)),
-        colors = CardDefaults.cardColors(containerColor = Slate900),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(iconTint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                    if (badge != null) {
-                        Surface(
-                            color = iconTint.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(bgColor)
+                                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                .clickable {
+                                    if (!isSubmitted) selectedOptionIndex = index
+                                }
+                                .padding(12.dp)
                         ) {
                             Text(
-                                text = badge,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = iconTint,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                text = "${('A' + index)}.  $optionText",
+                                fontSize = 13.sp,
+                                color = Color.White,
+                                fontWeight = if (isSelected || (isSubmitted && isCorrect)) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
-                )
-            }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color(0xFF64748B),
-                modifier = Modifier.size(18.dp)
-            )
+                if (isSubmitted) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Slate950)
+                            .padding(12.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = if (selectedOptionIndex == question.correctOptionIndex) "🎉 Correct Answer!" else "❌ Incorrect Answer",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selectedOptionIndex == question.correctOptionIndex) EmeraldSuccess else RoseError
+                            )
+                            Text(
+                                text = "Explanation: ${question.explanation}",
+                                fontSize = 11.sp,
+                                color = Color(0xFFCBD5E1),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!isSubmitted) {
+                        Button(
+                            onClick = {
+                                if (selectedOptionIndex >= 0) {
+                                    isSubmitted = true
+                                    onSubmitAnswer(selectedOptionIndex, selectedOptionIndex == question.correctOptionIndex)
+                                }
+                            },
+                            enabled = selectedOptionIndex >= 0,
+                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Submit Answer", color = Slate950, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Done", color = Slate950, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }

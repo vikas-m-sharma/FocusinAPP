@@ -28,5 +28,6 @@ data class UserSettingsEntity(
     val eveningSummaryEnabled: Boolean = true,
     val isGoogleSignedIn: Boolean = false,
     val cloudSyncEnabled: Boolean = false,
-    val lastSyncTimestamp: Long = 0L
+    val lastSyncTimestamp: Long = 0L,
+    val playlistProgressJson: String = "{}"
 )

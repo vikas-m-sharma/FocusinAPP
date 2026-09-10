@@ -12,7 +12,16 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+data class AiChatMessage(
+    val sender: String, // "USER" or "GEMINI"
+    val message: String,
+    val timestamp: String = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+)
 
 data class GeneratedTimetablePlan(
     val summary: String,
@@ -84,6 +93,57 @@ class GeminiFocusinService {
         BuildConfig.GEMINI_API_KEY
     } catch (_: Throwable) {
         ""
+    }
+
+    suspend fun chatWithGemini(
+        userQuery: String,
+        chatHistory: List<AiChatMessage>,
+        userName: String
+    ): String = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext fallbackChatResponse(userQuery, userName)
+        }
+
+        val historyText = chatHistory.takeLast(6).joinToString("\n") {
+            if (it.sender == "USER") "User ($userName): ${it.message}" else "Gemini AI: ${it.message}"
+        }
+
+        val prompt = """
+            You are FOCUSIN Gemini AI Assistant, a personal study coach and schedule advisor for $userName.
+            You speak respectfully, clearly, and warmly, addressing the user directly as $userName.
+            Do NOT use titles like Sir or Mam. Just call the user $userName.
+            You assist with timetable creation, study guidance, exam preparation, focus strategies, app blocking, and motivation.
+            Keep your response concise, actionable, natural for text-to-speech (2-3 clear sentences), and helpful.
+
+            Recent Conversation:
+            $historyText
+            
+            New User Query from $userName: "$userQuery"
+
+            Respond directly to $userName:
+        """.trimIndent()
+
+        try {
+            val text = callGemini(prompt)
+            if (text.isNotBlank()) text.trim() else fallbackChatResponse(userQuery, userName)
+        } catch (e: Exception) {
+            Log.e("GeminiFocusinService", "Error chatting with Gemini", e)
+            fallbackChatResponse(userQuery, userName)
+        }
+    }
+
+    private fun fallbackChatResponse(query: String, userName: String): String {
+        val q = query.lowercase()
+        return when {
+            q.contains("calculus") || q.contains("math") ->
+                "For Calculus, $userName, schedule a 2-hour morning deep-focus block (6 AM to 8 AM). Practice active recall on key derivative and integral formulas."
+            q.contains("schedule") || q.contains("timetable") ->
+                "I can automatically set up your weekly timetable, $userName! Click '⚡ Schedule & Lock Apps' or ask me to set up a 6 AM study session."
+            q.contains("block") || q.contains("app") || q.contains("social") ->
+                "I will lock Instagram, TikTok, YouTube, Twitter, and Facebook automatically during your focus sessions, $userName, keeping you 100% distraction-free."
+            else ->
+                "Certainly, $userName! I am here as your Gemini AI Assistant to help you optimize your study timetable, lock distracting apps, and master your focus goals."
+        }
     }
 
     suspend fun generateTimetable(userInput: String): GeneratedTimetablePlan = withContext(Dispatchers.IO) {

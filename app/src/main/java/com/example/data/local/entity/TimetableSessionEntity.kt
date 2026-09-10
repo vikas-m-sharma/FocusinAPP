@@ -23,7 +23,9 @@ data class TimetableSessionEntity(
     val soundUri: String? = null,
     val recurrenceType: String = "WEEKLY", // "ONCE", "WEEKLY", "WEEKDAYS", "DAILY", "CUSTOM"
     val customDaysJson: String = "[]",     // e.g. "[1, 3, 5]" for Mon, Wed, Fri
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    val blockedAppsJson: String = "[\"Instagram\", \"TikTok\", \"YouTube\", \"Twitter\", \"Facebook\", \"Snapchat\", \"Netflix\", \"Reddit\"]",
+    val isCompleted: Boolean = false
 ) {
     val recurrence: String get() = recurrenceType
 }
