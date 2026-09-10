@@ -103,29 +103,26 @@ interface LearningDao {
     fun getAllQuizAttempts(): Flow<List<QuizAttemptRecordEntity>>
 
     @Query("SELECT * FROM quiz_attempts WHERE id = :id")
-<<<<<<< HEAD
-    suspend fun getQuizAttemptById(id: Long): QuizAttemptEntity?
+    suspend fun getQuizAttemptEntityById(id: Long): QuizAttemptEntity?
+
+    @Query("SELECT * FROM quiz_attempt_records WHERE id = :id")
+    suspend fun getQuizAttemptById(id: Long): QuizAttemptRecordEntity?
 
     @Query("SELECT * FROM quiz_attempts WHERE id = :id")
     fun getQuizAttemptFlowById(id: Long): Flow<QuizAttemptEntity?>
-=======
-    suspend fun getQuizAttemptById(id: Long): QuizAttemptRecordEntity?
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizAttempt(attempt: QuizAttemptRecordEntity): Long
 
-<<<<<<< HEAD
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun recordQuizAttempt(attempt: QuizAttemptEntity): Long
-=======
+
     @Query("DELETE FROM chapter_progress")
     suspend fun deleteAllChapterProgress()
 
-    @Query("DELETE FROM question_attempts")
+    @Query("DELETE FROM question_attempt_records")
     suspend fun deleteAllQuestionAttempts()
 
-    @Query("DELETE FROM quiz_attempts")
+    @Query("DELETE FROM quiz_attempt_records")
     suspend fun deleteAllQuizAttempts()
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 }

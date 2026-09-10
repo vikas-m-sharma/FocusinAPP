@@ -13,7 +13,6 @@ import com.example.data.local.dao.TimetableDao
 import com.example.data.local.dao.UserSettingsDao
 import com.example.data.local.dao.VoiceRecordingDao
 import com.example.data.local.entity.AchievementEntity
-<<<<<<< HEAD
 import com.example.data.local.entity.ChapterEntity
 import com.example.data.local.entity.ChapterProgressEntity
 import com.example.data.local.entity.DailyStatsEntity
@@ -23,12 +22,6 @@ import com.example.data.local.entity.QuestionAttemptEntity
 import com.example.data.local.entity.QuestionAttemptRecordEntity
 import com.example.data.local.entity.QuestionEntity
 import com.example.data.local.entity.QuizAttemptEntity
-=======
-import com.example.data.local.entity.ChapterProgressEntity
-import com.example.data.local.entity.DailyStatsEntity
-import com.example.data.local.entity.FocusSessionRecordEntity
-import com.example.data.local.entity.QuestionAttemptRecordEntity
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
 import com.example.data.local.entity.QuizAttemptRecordEntity
 import com.example.data.local.entity.SubjectEntity
 import com.example.data.local.entity.TimetableSessionEntity
@@ -47,7 +40,6 @@ import com.example.data.local.entity.VoiceRecordingEntity
         UserSettingsEntity::class,
         ChapterProgressEntity::class,
         QuestionAttemptRecordEntity::class,
-<<<<<<< HEAD
         QuizAttemptRecordEntity::class,
         ChapterEntity::class,
         TopicEntity::class,
@@ -56,12 +48,7 @@ import com.example.data.local.entity.VoiceRecordingEntity
         QuizAttemptEntity::class,
         LearningResourceEntity::class
     ],
-    version = 7,
-=======
-        QuizAttemptRecordEntity::class
-    ],
-    version = 4,
->>>>>>> 2ac67966d8545fe255dc26d35398ebfa4f6cd058
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
