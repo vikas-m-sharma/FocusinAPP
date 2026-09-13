@@ -104,8 +104,23 @@ fun MockTestScreen(
     onNavigateToPractice: (String, String) -> Unit = { _, _ -> }
 ) {
     val customQuestions by viewModel.customTestQuestions.collectAsState()
-    val testQuestions = remember(testTitle, customQuestions) {
-        customQuestions ?: emptyList()
+    val context = LocalContext.current
+    var fallback180Questions by remember { mutableStateOf<List<NeetQuestion>>(emptyList()) }
+
+    LaunchedEffect(testTitle, customQuestions) {
+        if (customQuestions.isNullOrEmpty()) {
+            val yearInt = testTitle.filter { it.isDigit() }.toIntOrNull() ?: 2024
+            val list = com.example.data.repository.NeetFullPaperRepository.getOrPopulateFull180Paper(context, yearInt)
+            fallback180Questions = list
+        }
+    }
+
+    val testQuestions = remember(testTitle, customQuestions, fallback180Questions) {
+        if (!customQuestions.isNullOrEmpty()) {
+            customQuestions!!
+        } else {
+            fallback180Questions
+        }
     }
 
     // User answers map: question index -> selectedOption ("A", "B", "C", "D")
@@ -122,7 +137,6 @@ fun MockTestScreen(
     var showScheduleDialog by remember { mutableStateOf(false) }
     var schedulePrefillTopic by remember { mutableStateOf("") }
 
-    val context = LocalContext.current
     val isPwDTest = remember(testTitle) {
         testTitle.contains("PwD", ignoreCase = true) || testTitle.contains("Accessible", ignoreCase = true)
     }

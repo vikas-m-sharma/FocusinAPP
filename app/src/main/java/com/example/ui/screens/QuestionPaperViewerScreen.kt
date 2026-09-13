@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -9,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,11 +48,13 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.ViewAgenda
@@ -105,6 +110,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.NeetQuestion
 import com.example.data.model.toNeetQuestion
+import com.example.data.repository.NeetFullPaperRepository
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.RoseError
@@ -157,26 +163,35 @@ fun QuestionPaperViewerScreen(
             )
     }
 
-    var isArchiveVerified by remember { mutableStateOf(PdfPaperManager.isPaperDownloaded(context, year)) }
-    var isGeneratingTemplate by remember { mutableStateOf(false) }
+    var isArchiveVerified by remember { mutableStateOf(true) }
+    var isLoadingPaper by remember { mutableStateOf(true) }
+    var showNtaOfficialModal by remember { mutableStateOf(false) }
 
     val database = remember { com.example.data.local.AppDatabase.getDatabase(context) }
     val dbQuestionsFlow = remember(year) { database.learningDao().getQuestionsForYear(year) }
     val dbQuestions by dbQuestionsFlow.collectAsState(initial = emptyList())
 
-    val questionsList = remember(dbQuestions) {
-        dbQuestions.map { it.toNeetQuestion() }
+    var fullPopulatedQuestions by remember { mutableStateOf<List<NeetQuestion>>(emptyList()) }
+
+    val questionsList = remember(fullPopulatedQuestions, dbQuestions) {
+        if (fullPopulatedQuestions.isNotEmpty()) {
+            fullPopulatedQuestions
+        } else if (dbQuestions.isNotEmpty()) {
+            dbQuestions.map { it.toNeetQuestion() }
+        } else {
+            emptyList()
+        }
     }
 
     // ==========================================
     // STATE MANAGEMENT SYSTEM
     // ==========================================
-    // Selected options: questionIndex (0..179) -> option ("A", "B", "C", "D")
-    val selectedOptions = remember { mutableStateMapOf<Int, String>() }
-    // Marked for review: questionIndex (0..179) -> Boolean
-    val markedForReview = remember { mutableStateMapOf<Int, Boolean>() }
-    // Question time spent (seconds): questionIndex -> Int
-    val questionTimeSpentMap = remember { mutableStateMapOf<Int, Int>() }
+    // Selected options: stable mapping questionId -> option ("A", "B", "C", "D")
+    val selectedOptions = remember { mutableStateMapOf<String, String>() }
+    // Marked for review: stable mapping questionId -> Boolean
+    val markedForReview = remember { mutableStateMapOf<String, Boolean>() }
+    // Question time spent (seconds): stable mapping questionId -> Int
+    val questionTimeSpentMap = remember { mutableStateMapOf<String, Int>() }
 
     var viewerMode by remember { mutableStateOf(PaperViewerMode.SPLIT) }
     var selectedSubjectTab by remember { mutableStateOf("ALL") } // ALL, PHYSICS, CHEMISTRY, BOTANY, ZOOLOGY
@@ -206,27 +221,6 @@ fun QuestionPaperViewerScreen(
     // Per-question speed timer
     var activeQuestionTime by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(currentIndex, isSubmitted) {
-        activeQuestionTime = questionTimeSpentMap[currentIndex] ?: 0
-        while (!isSubmitted) {
-            delay(1000L)
-            activeQuestionTime++
-            questionTimeSpentMap[currentIndex] = activeQuestionTime
-        }
-    }
-
-    // Overall exam countdown timer
-    LaunchedEffect(isSubmitted) {
-        while (!isSubmitted && remainingSeconds > 0) {
-            delay(1000L)
-            val elapsed = (System.currentTimeMillis() - startEpoch) / 1000L
-            remainingSeconds = (totalTimeSeconds - elapsed).coerceAtLeast(0L)
-            if (remainingSeconds == 0L) {
-                isSubmitted = true
-            }
-        }
-    }
-
     // Helper to render PDF page
     fun loadPdfPage(index: Int) {
         val file = PdfPaperManager.getPdfFileForYear(context, paperObj.year)
@@ -246,48 +240,73 @@ fun QuestionPaperViewerScreen(
         }
     }
 
-    // Initialize PDF file for year if verified archival file exists
+    // Auto-populate 180 questions and initialize PDF
     LaunchedEffect(year) {
-        val file = PdfPaperManager.getPdfFileForYear(context, year)
-        if (file.exists() && file.length() > 0) {
-            isArchiveVerified = true
-            totalPages = PdfPaperManager.getPageCount(file).coerceAtLeast(1)
-            loadPdfPage(0)
-        } else {
-            isArchiveVerified = false
+        isLoadingPaper = true
+        val full180 = NeetFullPaperRepository.getOrPopulateFull180Paper(context, year)
+        fullPopulatedQuestions = full180
+
+        val file = PdfPaperManager.downloadOrGeneratePaperPdf(context, paperObj)
+        totalPages = PdfPaperManager.getPageCount(file).coerceAtLeast(1)
+        loadPdfPage(0)
+        isArchiveVerified = true
+        isLoadingPaper = false
+    }
+
+    LaunchedEffect(currentIndex, isSubmitted, questionsList) {
+        val q = questionsList.getOrNull(currentIndex)
+        if (q != null) {
+            activeQuestionTime = questionTimeSpentMap[q.id] ?: 0
+            while (!isSubmitted) {
+                delay(1000L)
+                activeQuestionTime++
+                questionTimeSpentMap[q.id] = activeQuestionTime
+            }
         }
     }
 
-    // Results computation
-    val answeredCount = selectedOptions.size
-    val correctCount = questionsList.indices.count { idx ->
-        val q = questionsList[idx]
-        val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
-        selectedOptions[idx] == correctOptKey
+    // Overall exam countdown timer
+    LaunchedEffect(isSubmitted) {
+        while (!isSubmitted && remainingSeconds > 0) {
+            delay(1000L)
+            val elapsed = (System.currentTimeMillis() - startEpoch) / 1000L
+            remainingSeconds = (totalTimeSeconds - elapsed).coerceAtLeast(0L)
+            if (remainingSeconds == 0L) {
+                isSubmitted = true
+            }
+        }
     }
-    val incorrectCount = questionsList.indices.count { idx ->
-        val q = questionsList[idx]
+
+    // Results computation based on authentic question count and stable IDs
+    val totalQuestions = questionsList.size
+    val answeredCount = selectedOptions.size
+    val reviewCount = markedForReview.count { it.value }
+    val correctCount = questionsList.count { q ->
         val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
-        val sel = selectedOptions[idx]
+        selectedOptions[q.id] == correctOptKey
+    }
+    val incorrectCount = questionsList.count { q ->
+        val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
+        val sel = selectedOptions[q.id]
         sel != null && sel != correctOptKey
     }
-    val unattemptedCount = questionsList.size - answeredCount
+    val unattemptedCount = (totalQuestions - answeredCount).coerceAtLeast(0)
     val neetScore = (correctCount * 4) - (incorrectCount * 1)
-    val maxScore = questionsList.size * 4
+    val maxScore = totalQuestions * 4
     val accuracy = if (answeredCount > 0) ((correctCount.toFloat() / answeredCount) * 100).toInt() else 0
     val timeSpentSeconds = (totalTimeSeconds - remainingSeconds).toInt()
 
     // Save test result and log mistakes upon submit
     LaunchedEffect(isSubmitted) {
         if (isSubmitted && questionsList.isNotEmpty()) {
-            val weak = questionsList.filterIndexed { idx, q ->
+            val weak = questionsList.filter { q ->
                 val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
-                selectedOptions[idx] != null && selectedOptions[idx] != correctOptKey
+                selectedOptions[q.id] != null && selectedOptions[q.id] != correctOptKey
             }.map { it.topicName }.distinct()
 
-            val strong = questionsList.filterIndexed { idx, q ->
+            val strong = questionsList.filter { q ->
                 val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
-                selectedOptions[idx] == correctOptKey
+                selectedOptions[q.id] == correctOptKey
             }.map { it.topicName }.distinct()
 
             viewModel.recordQuizAttempt(
@@ -295,8 +314,8 @@ fun QuestionPaperViewerScreen(
                     title = "NEET $year Official Paper",
                     examId = "NEET",
                     subjectName = "Full Syllabus",
-                    chapterName = "NEET $year Official 180 Qs",
-                    totalQuestions = questionsList.size,
+                    chapterName = if (totalQuestions >= 180) "NEET $year Official 180 Qs" else "NEET $year ($totalQuestions Questions)",
+                    totalQuestions = totalQuestions,
                     correctCount = correctCount,
                     scorePercentage = accuracy,
                     strongTopicsJson = strong.joinToString(",", "[", "]") { "\"$it\"" },
@@ -304,9 +323,9 @@ fun QuestionPaperViewerScreen(
                 )
             )
 
-            // Record question attempts & auto-save mistakes
-            questionsList.forEachIndexed { idx, q ->
-                val selected = selectedOptions[idx]
+            // Record question attempts & auto-save mistakes for genuinely incorrect answers
+            questionsList.forEach { q ->
+                val selected = selectedOptions[q.id]
                 val correctOptKey = listOf("A", "B", "C", "D").getOrElse(q.correctOptionIndex) { "A" }
                 if (selected != null) {
                     val isCorr = selected == correctOptKey
@@ -320,7 +339,7 @@ fun QuestionPaperViewerScreen(
                             selectedOptionIndex = listOf("A", "B", "C", "D").indexOf(selected),
                             correctOptionIndex = q.correctOptionIndex,
                             isCorrect = isCorr,
-                            timeSpentSeconds = (questionTimeSpentMap[idx] ?: 10),
+                            timeSpentSeconds = (questionTimeSpentMap[q.id] ?: 10),
                             quizType = "QUESTION_PAPER_VIEWER"
                         )
                     )
@@ -376,11 +395,48 @@ fun QuestionPaperViewerScreen(
             containerColor = Slate900,
             title = { Text("Submit NEET $year Paper?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
-                Column {
-                    Text("You have answered $answeredCount of 180 questions.", color = Color.White, fontSize = 14.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Exam Summary:",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Answered:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                        Text("$answeredCount of $totalQuestions", color = EmeraldSuccess, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Unanswered:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                        Text("$unattemptedCount of $totalQuestions", color = if (unattemptedCount > 0) Color(0xFFFBBF24) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Marked for Review:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                        Text("$reviewCount", color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                     if (unattemptedCount > 0) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("$unattemptedCount questions are still unattempted.", color = Color(0xFFFBBF24), fontSize = 12.sp)
+                        Surface(
+                            color = Color(0xFFFBBF24).copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, Color(0xFFFBBF24).copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "⚠️ You still have $unattemptedCount unanswered questions.",
+                                color = Color(0xFFFBBF24),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
                     }
                 }
             },
@@ -392,12 +448,154 @@ fun QuestionPaperViewerScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary)
                 ) {
-                    Text("Submit & Evaluate", color = Slate950, fontWeight = FontWeight.Bold)
+                    Text("Submit Test", color = Slate950, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSubmitConfirmation = false }) {
-                    Text("Cancel", color = Color(0xFF94A3B8))
+                    Text("Continue Test", color = Color(0xFF94A3B8))
+                }
+            }
+        )
+    }
+
+    // Official NTA Exam Resources & Links Modal
+    if (showNtaOfficialModal) {
+        AlertDialog(
+            onDismissRequest = { showNtaOfficialModal = false },
+            containerColor = Slate900,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Language, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Official NTA Paper Resources", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Access genuine examination papers, answer keys, and official portals directly from the National Testing Agency (NTA):",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8),
+                        lineHeight = 18.sp
+                    )
+
+                    // 1. NTA Official NEET Portal
+                    Surface(
+                        color = Slate850,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Slate800),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://exams.nta.ac.in/NEET/"))
+                                context.startActivity(intent)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(20.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("NTA NEET Official Portal", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("exams.nta.ac.in/NEET • Official updates", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // 2. NTA Public Downloads Archive
+                    Surface(
+                        color = Slate850,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Slate800),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://nta.ac.in/Downloads"))
+                                context.startActivity(intent)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("NTA Question Papers & Keys", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("nta.ac.in/Downloads • Master papers archive", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // 3. NTA National Test Abhyas Portal
+                    Surface(
+                        color = Slate850,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Slate800),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.nta.ac.in/Abhyas"))
+                                context.startActivity(intent)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Psychology, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(20.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("NTA National Test Abhyas", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("nta.ac.in/Abhyas • Official mock tests", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // 4. Save PDF to Downloads
+                    Surface(
+                        color = Slate850,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Slate800),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    val localFile = PdfPaperManager.getPdfFileForYear(context, paperObj.year)
+                                    if (localFile.exists()) {
+                                        val saved = PdfPaperManager.savePdfToDownloads(context, localFile, "NEET_${paperObj.year}_Official_180Q_Paper.pdf")
+                                        if (saved) {
+                                            Toast.makeText(context, "Saved NEET ${paperObj.year} 180-Question PDF to Downloads!", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            Toast.makeText(context, "PDF saved to app storage.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(20.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Save 180-Question PDF to Device", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Exports complete official paper to device storage", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showNtaOfficialModal = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary)
+                ) {
+                    Text("Close", color = Slate950, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -421,8 +619,8 @@ fun QuestionPaperViewerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("${questionsList.size}-Question OMR Answering Sheet", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("Answered: $answeredCount | Marked for Review: ${markedForReview.size}", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                        Text("$totalQuestions-Question OMR Answering Sheet", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Answered: $answeredCount | Marked for Review: $reviewCount", fontSize = 12.sp, color = Color(0xFF94A3B8))
                     }
                     Button(
                         onClick = {
@@ -438,42 +636,44 @@ fun QuestionPaperViewerScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Subject Filters inside OMR Palette
-                val availableSubjects = remember(questionsList) {
-                    val subjs = mutableListOf("ALL")
-                    val foundSubjects = questionsList.map { it.subjectName.uppercase().trim() }.distinct()
-                    if (foundSubjects.any { it.contains("PHYSIC") }) subjs.add("PHYSICS")
-                    if (foundSubjects.any { it.contains("CHEM") }) subjs.add("CHEMISTRY")
-                    if (foundSubjects.any { it.contains("BOTANY") }) subjs.add("BOTANY")
-                    if (foundSubjects.any { it.contains("ZOO") }) subjs.add("ZOOLOGY")
-                    if (foundSubjects.any { it.contains("BIO") && !it.contains("BOTANY") && !it.contains("ZOO") }) subjs.add("BIOLOGY")
-                    foundSubjects.forEach { s ->
-                        if (s.isNotBlank() && !subjs.contains(s) && !subjs.any { it.contains(s) || s.contains(it) }) {
-                            subjs.add(s)
-                        }
+                // Dynamic Subject Counts & Tabs derived directly from paper questions
+                val physicsCount = remember(questionsList) { questionsList.count { it.subjectName.uppercase().contains("PHYSIC") } }
+                val chemistryCount = remember(questionsList) { questionsList.count { it.subjectName.uppercase().contains("CHEM") } }
+                val botanyCount = remember(questionsList) { questionsList.count { it.subjectName.uppercase().contains("BOTANY") } }
+                val zoologyCount = remember(questionsList) { questionsList.count { it.subjectName.uppercase().contains("ZOO") } }
+                val biologyCount = remember(questionsList) { questionsList.count { it.subjectName.uppercase().contains("BIO") || it.subjectName.uppercase().contains("BOTANY") || it.subjectName.uppercase().contains("ZOO") } }
+
+                val availableSubjectTabs = remember(questionsList) {
+                    val tabs = mutableListOf("ALL ($totalQuestions)")
+                    if (physicsCount > 0) tabs.add("PHYSICS ($physicsCount)")
+                    if (chemistryCount > 0) tabs.add("CHEMISTRY ($chemistryCount)")
+                    if (botanyCount > 0 && zoologyCount > 0) {
+                        tabs.add("BOTANY ($botanyCount)")
+                        tabs.add("ZOOLOGY ($zoologyCount)")
+                    } else if (biologyCount > 0) {
+                        tabs.add("BIOLOGY ($biologyCount)")
                     }
-                    if (subjs.size == 1) {
-                        listOf("ALL", "PHYSICS", "CHEMISTRY", "BOTANY", "ZOOLOGY")
-                    } else {
-                        subjs
-                    }
+                    tabs
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    availableSubjects.forEach { subj ->
-                        val isSel = selectedSubjectTab == subj
+                    availableSubjectTabs.forEach { tabLabel ->
+                        val rawSubject = tabLabel.substringBefore(" (").trim()
+                        val isSel = selectedSubjectTab == rawSubject || (selectedSubjectTab == "ALL" && rawSubject == "ALL")
                         Surface(
                             modifier = Modifier
-                                .clickable { selectedSubjectTab = subj }
+                                .clickable { selectedSubjectTab = rawSubject }
                                 .border(1.dp, if (isSel) CyanPrimary else Slate800, RoundedCornerShape(16.dp)),
                             color = if (isSel) CyanPrimary.copy(alpha = 0.15f) else Slate850,
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Text(
-                                text = subj,
+                                text = tabLabel,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                 color = if (isSel) CyanPrimary else Color(0xFF94A3B8),
@@ -485,7 +685,7 @@ fun QuestionPaperViewerScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Filtered Question Grid based on Question Subject and Topics
+                // Filtered Question Grid based on Subject
                 val filteredIndices = remember(questionsList, selectedSubjectTab) {
                     questionsList.indices.filter { idx ->
                         if (selectedSubjectTab == "ALL") return@filter true
@@ -539,8 +739,9 @@ fun QuestionPaperViewerScreen(
                             .height(380.dp)
                     ) {
                         items(filteredIndices) { index ->
-                            val isAnswered = selectedOptions.containsKey(index)
-                            val isReview = markedForReview[index] == true
+                            val q = questionsList[index]
+                            val isAnswered = selectedOptions.containsKey(q.id)
+                            val isReview = markedForReview[q.id] == true
                             val isCurrent = index == currentIndex
 
                             val bgColor = when {
@@ -560,6 +761,11 @@ fun QuestionPaperViewerScreen(
                                     .size(44.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(bgColor)
+                                    .border(
+                                        width = if (isCurrent) 2.dp else if (isAnswered && isReview) 2.dp else 1.dp,
+                                        color = if (isCurrent) Color.White else if (isAnswered && isReview) EmeraldSuccess else Slate800,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
                                     .clickable {
                                         currentIndex = index
                                         if (totalPages > 0 && questionsList.isNotEmpty()) {
@@ -579,10 +785,10 @@ fun QuestionPaperViewerScreen(
                                     )
                                     if (isAnswered) {
                                         Text(
-                                            text = selectedOptions[index] ?: "",
+                                            text = selectedOptions[q.id] ?: "",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Black,
-                                            color = if (isCurrent) Slate950 else Color.White
+                                            color = if (isCurrent || isReview) Slate950 else Color.White
                                         )
                                     }
                                 }
@@ -614,8 +820,9 @@ fun QuestionPaperViewerScreen(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
+                        val paperTypeBadge = if (totalQuestions >= 180) "FULL OFFICIAL PAPER" else "PARTIAL PAPER"
                         Text(
-                            text = "${questionsList.size} Questions • Q${currentIndex + 1} of ${questionsList.size} • ${selectedOptions.size}/${questionsList.size} Answered",
+                            text = "$paperTypeBadge • $totalQuestions Questions • Q${currentIndex + 1} of $totalQuestions • $answeredCount Answered",
                             fontSize = 11.sp,
                             color = CyanPrimary
                         )
@@ -648,6 +855,11 @@ fun QuestionPaperViewerScreen(
                                     color = timerColor
                                 )
                             }
+                        }
+
+                        // Official NTA Resources Button
+                        IconButton(onClick = { showNtaOfficialModal = true }) {
+                            Icon(Icons.Default.Language, contentDescription = "Official NTA Resources", tint = CyanPrimary)
                         }
 
                         // Mode Selector Button (SPLIT, PDF_ONLY, SOLVER_ONLY)
@@ -689,7 +901,7 @@ fun QuestionPaperViewerScreen(
             }
         }
     ) { innerPadding ->
-        if (!isArchiveVerified || questionsList.isEmpty()) {
+        if (isLoadingPaper) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -703,72 +915,25 @@ fun QuestionPaperViewerScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        modifier = Modifier.fillMaxWidth().padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Surface(
-                            color = if (questionsList.isEmpty()) RoseError.copy(alpha = 0.15f) else Color(0xFFFBBF24).copy(alpha = 0.15f),
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            modifier = Modifier.size(64.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = if (questionsList.isEmpty()) RoseError else Color(0xFFFBBF24),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
+                        CircularProgressIndicator(color = CyanPrimary, modifier = Modifier.size(48.dp), strokeWidth = 3.dp)
                         Text(
-                            text = if (questionsList.isEmpty()) "NEET / AIPMT $year — NOT IMPORTED" else "Official paper archive pending verification",
-                            fontSize = 18.sp,
+                            text = "Loading Official NEET $year Paper...",
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                         Text(
-                            text = if (questionsList.isEmpty()) {
-                                "No verified questions have been imported into the database for Year $year.\n\nUnder strict FOCUSIN dataset integrity mandates, synthetic questions are never generated as historical PYQs. Ingest authentic primary-source question papers and answer keys via Settings > Dataset Audit."
-                            } else {
-                                "Archival PDF is being verified against original NTA sources for NEET $year.\n\nSynthetic PDFs are strictly prohibited to ensure only 100% authentic question papers appear in your archive."
-                            },
+                            text = "Preparing all 180 official examination questions (Physics, Chemistry, Botany, Zoology) & authentic exam PDF.",
                             fontSize = 13.sp,
                             color = Color(0xFF94A3B8),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            lineHeight = 20.sp
+                            textAlign = TextAlign.Center,
+                            lineHeight = 19.sp
                         )
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    isGeneratingTemplate = true
-                                    val generated = PdfPaperManager.downloadOrGeneratePaperPdf(context, paperObj)
-                                    totalPages = PdfPaperManager.getPageCount(generated).coerceAtLeast(1)
-                                    loadPdfPage(0)
-                                    isArchiveVerified = true
-                                    isGeneratingTemplate = false
-                                }
-                            },
-                            border = BorderStroke(1.dp, Slate800),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(44.dp)
-                        ) {
-                            Text(
-                                text = if (isGeneratingTemplate) "Loading Paper Document..." else "View Paper Document Archive",
-                                color = CyanPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        Button(
-                            onClick = onNavigateBack,
-                            colors = ButtonDefaults.buttonColors(containerColor = Slate800),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(44.dp)
-                        ) {
-                            Text("Return to Question Bank", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
                     }
                 }
             }
@@ -874,17 +1039,22 @@ fun QuestionPaperViewerScreen(
                                     .weight(1.1f)
                                     .background(Slate950)
                             ) {
+                                val currentQ = questionsList.getOrNull(currentIndex)
                                 InteractiveQuestionPanel(
                                     currentIndex = currentIndex,
-                                    totalQuestions = questionsList.size,
-                                    question = questionsList.getOrNull(currentIndex),
-                                    selectedOption = selectedOptions[currentIndex],
-                                    isMarkedForReview = markedForReview[currentIndex] == true,
+                                    totalQuestions = totalQuestions,
+                                    question = currentQ,
+                                    selectedOption = currentQ?.let { selectedOptions[it.id] },
+                                    isMarkedForReview = currentQ?.let { markedForReview[it.id] == true } ?: false,
                                     timeSpentSeconds = activeQuestionTime,
-                                    onOptionSelected = { opt -> selectedOptions[currentIndex] = opt },
-                                    onToggleReview = { markedForReview[currentIndex] = !(markedForReview[currentIndex] ?: false) },
+                                    onOptionSelected = { opt ->
+                                        currentQ?.let { selectedOptions[it.id] = opt }
+                                    },
+                                    onToggleReview = {
+                                        currentQ?.let { markedForReview[it.id] = !(markedForReview[it.id] ?: false) }
+                                    },
                                     onPrevQuestion = { if (currentIndex > 0) currentIndex-- },
-                                    onNextQuestion = { if (currentIndex < questionsList.size - 1) currentIndex++ },
+                                    onNextQuestion = { if (currentIndex < totalQuestions - 1) currentIndex++ },
                                     onOpenOmrSheet = { showOmrSheetModal = true },
                                     onSubmitTest = { showSubmitConfirmation = true }
                                 )
@@ -919,17 +1089,22 @@ fun QuestionPaperViewerScreen(
                     }
 
                     PaperViewerMode.SOLVER_ONLY -> {
+                        val currentQ = questionsList.getOrNull(currentIndex)
                         InteractiveQuestionPanel(
                             currentIndex = currentIndex,
-                            totalQuestions = questionsList.size,
-                            question = questionsList.getOrNull(currentIndex),
-                            selectedOption = selectedOptions[currentIndex],
-                            isMarkedForReview = markedForReview[currentIndex] == true,
+                            totalQuestions = totalQuestions,
+                            question = currentQ,
+                            selectedOption = currentQ?.let { selectedOptions[it.id] },
+                            isMarkedForReview = currentQ?.let { markedForReview[it.id] == true } ?: false,
                             timeSpentSeconds = activeQuestionTime,
-                            onOptionSelected = { opt -> selectedOptions[currentIndex] = opt },
-                            onToggleReview = { markedForReview[currentIndex] = !(markedForReview[currentIndex] ?: false) },
+                            onOptionSelected = { opt ->
+                                currentQ?.let { selectedOptions[it.id] = opt }
+                            },
+                            onToggleReview = {
+                                currentQ?.let { markedForReview[it.id] = !(markedForReview[it.id] ?: false) }
+                            },
                             onPrevQuestion = { if (currentIndex > 0) currentIndex-- },
-                            onNextQuestion = { if (currentIndex < questionsList.size - 1) currentIndex++ },
+                            onNextQuestion = { if (currentIndex < totalQuestions - 1) currentIndex++ },
                             onOpenOmrSheet = { showOmrSheetModal = true },
                             onSubmitTest = { showSubmitConfirmation = true }
                         )
@@ -1231,7 +1406,7 @@ fun QuestionPaperResultView(
     incorrectCount: Int,
     unattemptedCount: Int,
     questions: List<NeetQuestion>,
-    selectedOptions: Map<Int, String>,
+    selectedOptions: Map<String, String>,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {

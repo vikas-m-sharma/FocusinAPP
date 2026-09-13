@@ -212,16 +212,16 @@ interface LearningDao {
     @Query("SELECT * FROM questions WHERE id = :id LIMIT 1")
     suspend fun getQuestionById(id: String): QuestionEntity?
 
-    @Query("SELECT * FROM questions WHERE examYear = :year ORDER BY id ASC")
+    @Query("SELECT * FROM questions WHERE examYear = :year ORDER BY COALESCE(originalQuestionNumber, 9999) ASC, id ASC")
     fun getQuestionsForYear(year: Int): Flow<List<QuestionEntity>>
 
-    @Query("SELECT * FROM questions WHERE examYear = :year ORDER BY id ASC")
+    @Query("SELECT * FROM questions WHERE examYear = :year ORDER BY COALESCE(originalQuestionNumber, 9999) ASC, id ASC")
     suspend fun getQuestionsForYearSync(year: Int): List<QuestionEntity>
 
-    @Query("SELECT * FROM questions WHERE sourceExam = :sourceExam AND examYear = :year ORDER BY id ASC")
+    @Query("SELECT * FROM questions WHERE sourceExam = :sourceExam AND examYear = :year ORDER BY COALESCE(originalQuestionNumber, 9999) ASC, id ASC")
     fun getQuestionsForExamAndYear(sourceExam: String, year: Int): Flow<List<QuestionEntity>>
 
-    @Query("SELECT * FROM questions WHERE sourceExam = :sourceExam AND examYear = :year ORDER BY id ASC")
+    @Query("SELECT * FROM questions WHERE sourceExam = :sourceExam AND examYear = :year ORDER BY COALESCE(originalQuestionNumber, 9999) ASC, id ASC")
     suspend fun getQuestionsForExamAndYearSync(sourceExam: String, year: Int): List<QuestionEntity>
 
     @Query("SELECT * FROM questions WHERE isBookmarked = 1")
