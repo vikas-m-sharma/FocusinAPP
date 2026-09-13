@@ -1,6 +1,7 @@
 package com.example.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -47,7 +48,21 @@ data class TopicEntity(
     val lastUpdated: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "questions")
+@Entity(
+    tableName = "questions",
+    indices = [
+        Index(value = ["chapterId"]),
+        Index(value = ["subjectId"]),
+        Index(value = ["examYear"]),
+        Index(value = ["sourceExam"]),
+        Index(value = ["difficulty"]),
+        Index(value = ["isOfficialPYQ"]),
+        Index(value = ["sourceVerificationStatus"]),
+        Index(value = ["historicalPaperId"]),
+        Index(value = ["chapterId", "examYear"]),
+        Index(value = ["chapterId", "sourceExam"])
+    ]
+)
 data class QuestionEntity(
     @PrimaryKey
     val id: String,
@@ -65,8 +80,28 @@ data class QuestionEntity(
     val difficulty: String = "MEDIUM", // "EASY", "MEDIUM", "HARD"
     val pyqYear: String? = null, // e.g., "NEET 2024", "NEET 2023", null for standard practice
     val isOfficialPYQ: Boolean = false,
-    val isBookmarked: Boolean = false
-)
+    val isBookmarked: Boolean = false,
+    val sourceExam: String = "NEET_UG", // "AIPMT", "NEET_UG", "NEET_RE", "OTHER_MEDICAL_ENTRANCE"
+    val examYear: Int? = null, // e.g. 2008, 2024
+    val paperSession: String = "MAIN", // "MAIN", "PRELIMS", "PHASE_1", "PHASE_2", "RE_EXAM"
+    val syllabusStatus: String = "CURRENT", // "CURRENT", "RATIONALIZED", "OUT_OF_CURRENT_SYLLABUS", "UNKNOWN"
+    val sourceVerificationStatus: String = "UNVERIFIED", // "VERIFIED", "UNVERIFIED", "SAMPLE", "GENERATED"
+    val historicalPaperId: String? = null,
+    val originalQuestionNumber: Int? = null,
+    val sourceReference: String? = null
+) {
+    val options: List<String>
+        get() = listOf(optionA, optionB, optionC, optionD)
+
+    val correctOptionIndex: Int
+        get() = when (correctOption.trim().uppercase()) {
+            "A", "0" -> 0
+            "B", "1" -> 1
+            "C", "2" -> 2
+            "D", "3" -> 3
+            else -> 0
+        }
+}
 
 @Entity(tableName = "question_attempts")
 data class QuestionAttemptEntity(

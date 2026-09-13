@@ -61,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -330,6 +331,60 @@ fun MistakeDiaryScreen(
                         }
                     }
                 }
+
+                // Year Filter row if available
+                if (uiState.availableYears.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Year Filter:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            val isAllYear = uiState.selectedYearFilter == null
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { viewModel.setYearFilter(null) }
+                                    .border(1.dp, if (isAllYear) CyanPrimary else Slate800, RoundedCornerShape(14.dp)),
+                                color = if (isAllYear) CyanPrimary.copy(alpha = 0.15f) else Slate900
+                            ) {
+                                Text(
+                                    text = "All Years",
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isAllYear) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isAllYear) CyanPrimary else Color(0xFF94A3B8),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                        items(uiState.availableYears) { yr ->
+                            val isSelectedYear = uiState.selectedYearFilter == yr
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { viewModel.setYearFilter(yr) }
+                                    .border(1.dp, if (isSelectedYear) CyanPrimary else Slate800, RoundedCornerShape(14.dp)),
+                                color = if (isSelectedYear) CyanPrimary.copy(alpha = 0.15f) else Slate900
+                            ) {
+                                Text(
+                                    text = "$yr",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = if (isSelectedYear) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelectedYear) CyanPrimary else Color(0xFF94A3B8),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // List of Mistakes
@@ -509,6 +564,21 @@ fun MistakeEntityCard(
                         fontSize = 11.sp,
                         color = Color(0xFF64748B)
                     )
+
+                    if (mistake.sourceExam != null || mistake.examYear != null) {
+                        Surface(
+                            color = CyanPrimary.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = listOfNotNull(mistake.sourceExam, mistake.examYear?.toString()).joinToString(" "),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyanPrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
 
                 Row {

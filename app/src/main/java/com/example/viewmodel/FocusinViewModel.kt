@@ -220,6 +220,153 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     private val _latestCompletedRecord = MutableStateFlow<FocusSessionRecordEntity?>(null)
     val latestCompletedRecord: StateFlow<FocusSessionRecordEntity?> = _latestCompletedRecord.asStateFlow()
 
+    // PYQ Ingestion Report State
+    private val _pyqImportReport = MutableStateFlow<com.example.data.importer.PyqImportReport?>(null)
+    val pyqImportReport: StateFlow<com.example.data.importer.PyqImportReport?> = _pyqImportReport.asStateFlow()
+
+    // PYQ Review Queue & Conversion State
+    val pyqReviewQueue: StateFlow<List<com.example.data.importer.PyqNormalizedQuestion>> =
+        repository.pyqReviewQueueManager.queue
+
+    private val _latestConversionReport = MutableStateFlow<com.example.data.importer.PyqConversionReport?>(null)
+    val latestConversionReport: StateFlow<com.example.data.importer.PyqConversionReport?> =
+        _latestConversionReport.asStateFlow()
+
+    fun convertPyqSource(
+        document: com.example.data.importer.PyqSourceDocument,
+        onComplete: ((com.example.data.importer.PyqConversionReport) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                val (_, report) = repository.convertPyqSourceDocument(document)
+                _latestConversionReport.value = report
+                onComplete?.invoke(report)
+            } catch (e: Exception) {
+                Log.e("FocusinViewModel", "Conversion failed", e)
+            }
+        }
+    }
+
+    fun approveReviewItem(questionId: String, citation: String) {
+        repository.approveReviewItem(questionId, citation)
+    }
+
+    fun keepReviewItemUnverified(questionId: String) {
+        repository.keepReviewItemUnverified(questionId)
+    }
+
+    fun rejectReviewItem(questionId: String) {
+        repository.rejectReviewItem(questionId)
+    }
+
+    fun updateReviewItemChapter(questionId: String, subject: String, chapter: String, topic: String) {
+        repository.updateReviewItemChapter(questionId, subject, chapter, topic)
+    }
+
+    fun updateReviewItemAnswer(questionId: String, answerIdx: Int) {
+        repository.updateReviewItemAnswer(questionId, answerIdx)
+    }
+
+    fun commitReviewedPyqs(onResult: (Int) -> Unit) {
+        viewModelScope.launch {
+            val count = repository.commitReviewedQuestions()
+            onResult(count)
+        }
+    }
+
+    fun clearReviewQueue() {
+        repository.clearReviewQueue()
+    }
+
+    // Custom Test Session for OMR Exam Mode parameterization
+    private val _customTestQuestions = MutableStateFlow<List<com.example.data.model.NeetQuestion>?>(null)
+    val customTestQuestions: StateFlow<List<com.example.data.model.NeetQuestion>?> = _customTestQuestions.asStateFlow()
+
+    fun setCustomTestQuestions(questions: List<com.example.data.model.NeetQuestion>) {
+        _customTestQuestions.value = questions
+    }
+
+    fun clearCustomTestQuestions() {
+        _customTestQuestions.value = null
+    }
+
+    fun triggerPyqImport() {
+        viewModelScope.launch {
+            try {
+                val report = repository.importPyqAssets(getApplication())
+                _pyqImportReport.value = report
+                Log.d("FocusinViewModel", "Manual PYQ import completed: imported=${report.importedCount}, skipped=${report.skippedCount}, errors=${report.errors.size}")
+            } catch (e: Exception) {
+                Log.e("FocusinViewModel", "Failed importing PYQ assets", e)
+            }
+        }
+    }
+
+    fun getQuestionsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        repository.getQuestionsForChapter(chapterId)
+
+    fun getQuestionsForChapterWithFilters(
+        chapterId: String,
+        sourceExam: String? = null,
+        startYear: Int? = null,
+        endYear: Int? = null,
+        difficulty: String? = null,
+        isOfficialOnly: Boolean = false
+    ): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        repository.getQuestionsForChapterWithFilters(chapterId, sourceExam, startYear, endYear, difficulty, isOfficialOnly)
+
+    suspend fun getQuestionsForChapterWithFiltersSync(
+        chapterId: String,
+        sourceExam: String? = null,
+        startYear: Int? = null,
+        endYear: Int? = null,
+        difficulty: String? = null,
+        isOfficialOnly: Boolean = false
+    ): List<com.example.data.local.entity.QuestionEntity> =
+        repository.getQuestionsForChapterWithFiltersSync(chapterId, sourceExam, startYear, endYear, difficulty, isOfficialOnly)
+
+    fun getQuestionCountByYear(chapterId: String): Flow<List<com.example.data.local.dao.YearCount>> =
+        repository.getQuestionCountByYear(chapterId)
+
+    fun getVerifiedQuestionCountByYear(chapterId: String): Flow<List<com.example.data.local.dao.YearCount>> =
+        repository.getVerifiedQuestionCountByYear(chapterId)
+
+    fun getUnverifiedQuestionCountByYear(chapterId: String): Flow<List<com.example.data.local.dao.YearCount>> =
+        repository.getUnverifiedQuestionCountByYear(chapterId)
+
+    fun getBookmarkedQuestions(): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        repository.bookmarkedQuestions
+
+    fun getQuestionCountByExam(chapterId: String): Flow<List<com.example.data.local.dao.ExamCount>> =
+        repository.getQuestionCountByExam(chapterId)
+
+    fun getQuestionCountByTopic(chapterId: String): Flow<List<com.example.data.local.dao.TopicCount>> =
+        repository.getQuestionCountByTopic(chapterId)
+
+    fun getQuestionCountForChapter(chapterId: String): Flow<Int> =
+        repository.getQuestionCountForChapter(chapterId)
+
+    fun getUnansweredQuestionsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        repository.getUnansweredQuestionsForChapter(chapterId)
+
+    fun getMistakeQuestionsForChapter(chapterId: String): Flow<List<com.example.data.local.entity.QuestionEntity>> =
+        repository.getMistakeQuestionsForChapter(chapterId)
+
+    fun getTotalQuestionCount(): Flow<Int> = repository.getTotalQuestionCount()
+    fun getDistinctExamYears(): Flow<List<Int>> = repository.getDistinctExamYears()
+    fun getTotalOfficialPyqCount(): Flow<Int> = repository.getTotalOfficialPyqCount()
+    fun getTotalUnverifiedCount(): Flow<Int> = repository.getTotalUnverifiedCount()
+    fun getTotalSampleCount(): Flow<Int> = repository.getTotalSampleCount()
+    fun getTotalGeneratedCount(): Flow<Int> = repository.getTotalGeneratedCount()
+    fun getHistoricalCoverageReports(): Flow<List<com.example.data.catalog.YearCoverageReport>> =
+        repository.getHistoricalCoverageReports()
+
+    fun toggleQuestionBookmark(questionId: String, isBookmarked: Boolean) {
+        viewModelScope.launch {
+            repository.toggleQuestionBookmark(questionId, isBookmarked)
+        }
+    }
+
     init {
         // Initialize Clear Male Voice TTS Engine
         try {
@@ -254,6 +401,13 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             repository.initializeDefaultDataIfNeeded()
+            try {
+                val report = repository.importPyqAssets(getApplication())
+                _pyqImportReport.value = report
+                Log.d("FocusinViewModel", "Startup PYQ Ingestion: imported=${report.importedCount}, skipped=${report.skippedCount}, errors=${report.errors.size}")
+            } catch (e: Exception) {
+                Log.e("FocusinViewModel", "Error running startup PYQ ingestion", e)
+            }
             if (authPrefs.getBoolean("is_logged_in", false)) {
                 val savedName = authPrefs.getString("displayName", "Scholar") ?: "Scholar"
                 authManager.continueAsLocalUser(savedName)
@@ -347,7 +501,9 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
         options: List<String>,
         explanation: String,
         subjectName: String,
-        topicName: String
+        topicName: String,
+        sourceExam: String? = null,
+        examYear: Int? = null
     ) {
         viewModelScope.launch {
             val entity = com.example.data.local.entity.MistakeEntity(
@@ -364,7 +520,9 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
                 errorReason = com.example.data.model.MistakeReason.UNTAGGED.name,
                 studentNotes = "",
                 timestamp = System.currentTimeMillis(),
-                isResolved = false
+                isResolved = false,
+                sourceExam = sourceExam,
+                examYear = examYear
             )
             repository.insertMistake(entity)
         }

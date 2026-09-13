@@ -25,6 +25,9 @@ data class MistakeDiaryUiState(
     val resolvedCount: Int = 0,
     val selectedReasonFilter: MistakeReason? = null,
     val selectedSubjectFilter: String = "ALL",
+    val selectedYearFilter: Int? = null,
+    val selectedChapterFilter: String? = null,
+    val availableYears: List<Int> = emptyList(),
     val sillyMistakeCount: Int = 0,
     val formulaForgotCount: Int = 0,
     val misreadQuestionCount: Int = 0,
@@ -48,14 +51,22 @@ class MistakeDiaryViewModel(
     private val _selectedSubjectFilter = MutableStateFlow("ALL")
     val selectedSubjectFilter: StateFlow<String> = _selectedSubjectFilter.asStateFlow()
 
+    private val _selectedYearFilter = MutableStateFlow<Int?>(null)
+    val selectedYearFilter: StateFlow<Int?> = _selectedYearFilter.asStateFlow()
+
+    private val _selectedChapterFilter = MutableStateFlow<String?>(null)
+    val selectedChapterFilter: StateFlow<String?> = _selectedChapterFilter.asStateFlow()
+
     // Observe unresolved mistakes from Room database
     val allMistakesFlow = repository.allMistakes
 
     val uiState: StateFlow<MistakeDiaryUiState> = combine(
         repository.allMistakes,
         _selectedReasonFilter,
-        _selectedSubjectFilter
-    ) { allMistakes, reasonFilter, subjectFilter ->
+        _selectedSubjectFilter,
+        _selectedYearFilter,
+        _selectedChapterFilter
+    ) { allMistakes, reasonFilter, subjectFilter, yearFilter, chapterFilter ->
         val unresolved = allMistakes.filter { !it.isResolved }
         val resolved = allMistakes.filter { it.isResolved }
 
@@ -65,10 +76,14 @@ class MistakeDiaryViewModel(
         val conceptCount = unresolved.count { it.errorReason == MistakeReason.CONCEPT_GAP.name }
         val untaggedCount = unresolved.count { it.errorReason == MistakeReason.UNTAGGED.name }
 
+        val years = unresolved.mapNotNull { it.examYear }.distinct().sortedDescending()
+
         val filtered = unresolved.filter { mistake ->
             val matchesReason = reasonFilter == null || mistake.errorReason == reasonFilter.name
             val matchesSubject = subjectFilter == "ALL" || mistake.subjectName.equals(subjectFilter, ignoreCase = true)
-            matchesReason && matchesSubject
+            val matchesYear = yearFilter == null || mistake.examYear == yearFilter
+            val matchesChapter = chapterFilter == null || mistake.testTitle.contains(chapterFilter, ignoreCase = true) || mistake.topicName.contains(chapterFilter, ignoreCase = true)
+            matchesReason && matchesSubject && matchesYear && matchesChapter
         }
 
         MistakeDiaryUiState(
@@ -79,6 +94,9 @@ class MistakeDiaryViewModel(
             resolvedCount = resolved.size,
             selectedReasonFilter = reasonFilter,
             selectedSubjectFilter = subjectFilter,
+            selectedYearFilter = yearFilter,
+            selectedChapterFilter = chapterFilter,
+            availableYears = years,
             sillyMistakeCount = sillyCount,
             formulaForgotCount = formulaCount,
             misreadQuestionCount = misreadCount,
@@ -91,6 +109,14 @@ class MistakeDiaryViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = MistakeDiaryUiState(isLoading = true)
     )
+
+    fun setYearFilter(year: Int?) {
+        _selectedYearFilter.value = year
+    }
+
+    fun setChapterFilter(chapter: String?) {
+        _selectedChapterFilter.value = chapter
+    }
 
     // Initially empty. Mistakes are automatically added when student attempts question papers and makes errors.
 

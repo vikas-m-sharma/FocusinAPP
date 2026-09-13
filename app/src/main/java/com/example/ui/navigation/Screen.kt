@@ -63,12 +63,36 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object GoalsAndInsights : Screen("goals_and_insights", "Goals & Insights")
     object AiPerformanceCoach : Screen("ai_performance_coach", "AI Performance Coach")
     object MistakeDiary : Screen("mistake_diary", "Mistake Diary")
+    object ImportTest : Screen("import_test", "Import Test")
+    object SolveImportedTest : Screen("solve_imported_test/{testId}", "Solve Imported Test") {
+        fun createRoute(testId: String) = "solve_imported_test/$testId"
+    }
     object PdfReader : Screen("pdf_reader/{year}", "PDF Reader") {
         fun createRoute(year: Int) = "pdf_reader/$year"
     }
     object QuestionPaperViewer : Screen("question_paper_viewer/{year}", "Question Paper Viewer") {
         fun createRoute(year: Int = 2024) = "question_paper_viewer/$year"
     }
+
+    // Prepare Hub & NCERT Library Routes
+    object Prepare : Screen("prepare", "Prepare")
+    object NcertLibrary : Screen("ncert_library", "NCERT Library")
+    object NcertClass : Screen("ncert_class/{classNum}", "NCERT Class") {
+        fun createRoute(classNum: Int) = "ncert_class/$classNum"
+    }
+    object NcertSubject : Screen("ncert_subject/{classNum}/{subjectId}", "NCERT Subject") {
+        fun createRoute(classNum: Int, subjectId: String) = "ncert_subject/$classNum/$subjectId"
+    }
+    object NcertBook : Screen("ncert_book/{bookId}", "NCERT Book") {
+        fun createRoute(bookId: String) = "ncert_book/$bookId"
+    }
+    object NcertChapterDetail : Screen("ncert_chapter_detail/{chapterId}", "NCERT Chapter") {
+        fun createRoute(chapterId: String) = "ncert_chapter_detail/$chapterId"
+    }
+    object NcertReader : Screen("ncert_reader/{chapterId}", "NCERT Reader") {
+        fun createRoute(chapterId: String) = "ncert_reader/$chapterId"
+    }
+    object NcertSearch : Screen("ncert_search", "Search NCERT")
 
     companion object {
         val Timetable = Schedule

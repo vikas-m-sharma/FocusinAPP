@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2021,
+  "paperSession": "MAIN",
+  "historicalPaperId": "NEET_UG_2021_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "NTA Official NEET (UG) 2021 Examination Paper & Official Final Answer Key",
+  "sourceArtifact": "NEET_UG_2021_NTA_MAIN.pdf",
+  "questions": [
+    {
+      "id": "NEET_2021_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Potentiometer Null Point",
+      "questionText": "In a potentiometer circuit a cell of EMF 1.5 V gives balance point at 36 cm length of wire. If another cell of EMF 2.5 V replaces the first cell, then at what length of the wire will the balance point occur?",
+      "options": [
+        "60 cm",
+        "64 cm",
+        "62 cm",
+        "21.6 cm"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "In a potentiometer, E1 / E2 = l1 / l2. Given E1 = 1.5 V, l1 = 36 cm, E2 = 2.5 V. Therefore, 1.5 / 2.5 = 36 / l2 => l2 = (2.5 * 36) / 1.5 = 60 cm.",
+      "difficulty": "EASY",
+      "syllabusStatus": "RATIONALIZED",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2021_PHY_CURR_002",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Drift Velocity & Mobility",
+      "questionText": "A copper wire of length 10 m and radius (10^-2 / √π) m has electrical resistance of 10 Ω. The current density in the wire for an electric field strength of 10 (V/m) is:",
+      "options": [
+        "10^5 A/m²",
+        "10^6 A/m²",
+        "10^4 A/m²",
+        "10^-5 A/m²"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Resistance R = ρ * l / A = (1 / σ) * (l / A). Area A = π * r² = π * (10^-4 / π) = 10^-4 m². Conductivity σ = l / (R * A) = 10 / (10 * 10^-4) = 10^4 (Ω·m)^-1. Current density J = σ * E = 10^4 * 10 = 10^5 A/m².",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

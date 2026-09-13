@@ -1,0 +1,47 @@
+{
+  "sourceExam": "AIPMT",
+  "examYear": 2011,
+  "paperSession": "PRELIMS",
+  "historicalPaperId": "AIPMT_2011_PRELIMS",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "CBSE Official AIPMT 2011 Preliminary Examination Paper & Official Answer Key",
+  "sourceArtifact": "AIPMT_2011_CBSE_PRELIMS.pdf",
+  "questions": [
+    {
+      "id": "AIPMT_2011_BIO_GEN_001",
+      "subjectId": "BIOLOGY",
+      "chapterId": "neet_bio_genetics",
+      "topicName": "Mendel's Laws & Test Cross",
+      "questionText": "A test cross is carried out to:",
+      "options": [
+        "Determine the genotype of a plant at F2",
+        "Predict whether two traits are linked",
+        "Assess the number of alleles of a gene",
+        "Determine whether two species or varieties will breed successfully"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "A test cross is the cross of an individual of unknown dominant genotype with a homozygous recessive individual in order to determine whether the dominant parent is homozygous or heterozygous at F2.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "AIPMT_2011_CHEM_THERMO_001",
+      "subjectId": "CHEMISTRY",
+      "chapterId": "neet_chem_thermodynamics",
+      "topicName": "Enthalpy & Activation Energy",
+      "questionText": "For an exothermic reaction A2(g) + B2(g) -> 2AB(g), if ΔH = -20 kJ/mol and the activation energy for the forward reaction is 180 kJ/mol, the activation energy for the reverse reaction is:",
+      "options": [
+        "200 kJ/mol",
+        "160 kJ/mol",
+        "180 kJ/mol",
+        "20 kJ/mol"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "ΔH = Ea(forward) - Ea(backward). Therefore, -20 = 180 - Ea(backward) => Ea(backward) = 180 - (-20) = 200 kJ/mol.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

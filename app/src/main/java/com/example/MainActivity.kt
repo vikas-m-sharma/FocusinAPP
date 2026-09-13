@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -51,6 +52,8 @@ import com.example.ui.screens.FocusAnalyticsScreen
 import com.example.ui.screens.FocusSessionScreen
 import com.example.ui.screens.GoalsAndInsightsScreen
 import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.ImportTestScreen
+import com.example.ui.screens.ImportedTestSolverScreen
 import com.example.ui.screens.InternalPdfReaderScreen
 import com.example.ui.screens.LearningAnalyticsScreen
 import com.example.ui.screens.LoginScreen
@@ -68,7 +71,16 @@ import com.example.ui.screens.neet15YearsPdfArchive
 import com.example.ui.screens.RecentActivityScreen
 import com.example.ui.screens.ScheduleScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.viewmodel.ImportTestViewModel
 import com.example.ui.screens.SubjectChaptersScreen
+import com.example.ui.screens.ncert.PrepareScreen
+import com.example.ui.screens.ncert.NcertLibraryScreen
+import com.example.ui.screens.ncert.NcertClassScreen
+import com.example.ui.screens.ncert.NcertSubjectScreen
+import com.example.ui.screens.ncert.NcertBookScreen
+import com.example.ui.screens.ncert.NcertChapterDetailScreen
+import com.example.ui.screens.ncert.NcertReaderScreen
+import com.example.ui.screens.ncert.NcertSearchScreen
 import com.example.ui.screens.SubjectPerformanceScreen
 import com.example.ui.screens.SubjectsScreen
 import com.example.ui.screens.TestResultsScreen
@@ -235,7 +247,8 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                     onOpenCreateSession = { navController.navigate(Screen.Schedule.route) },
-                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) }
+                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) },
+                    onNavigateToPrepare = { navController.navigate(Screen.Prepare.route) }
                 )
             }
 
@@ -372,7 +385,18 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onNavigateToPdfReader = { year ->
                         navController.navigate(Screen.QuestionPaperViewer.createRoute(year))
                     },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                    onNavigateToImportTest = { navController.navigate(Screen.ImportTest.route) },
+                    onNavigateToSolveImportedTest = { testId ->
+                        navController.navigate(Screen.SolveImportedTest.createRoute(testId))
+                    },
+                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) },
+                    onNavigateToAiQuiz = { chapId ->
+                        navController.navigate(Screen.AiQuizGenerator.createRoute(chapId))
+                    },
+                    onNavigateToPractice = { chapId ->
+                        navController.navigate(Screen.ChapterPractice.createRoute(chapId, "practice"))
+                    }
                 )
             }
 
@@ -475,7 +499,10 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     chapterId = chapterId,
                     mode = mode,
                     viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToMockTest = { title ->
+                        navController.navigate(Screen.MockTest.createRoute(title))
+                    }
                 )
             }
 
@@ -615,6 +642,151 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     year = year,
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.ImportTest.route) {
+                val currentContext = LocalContext.current
+                val importVm = remember { ImportTestViewModel(viewModel.repository, currentContext) }
+                ImportTestScreen(
+                    viewModel = importVm,
+                    onBack = { navController.popBackStack() },
+                    onTestCreated = { testId ->
+                        navController.popBackStack()
+                        navController.navigate(Screen.SolveImportedTest.createRoute(testId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.SolveImportedTest.route,
+                arguments = listOf(navArgument("testId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val testId = backStackEntry.arguments?.getString("testId").orEmpty()
+                ImportedTestSolverScreen(
+                    testId = testId,
+                    repository = viewModel.repository,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToMistakeDiary = {
+                        navController.popBackStack()
+                        navController.navigate(Screen.MistakeDiary.route)
+                    }
+                )
+            }
+
+            composable(Screen.Prepare.route) {
+                PrepareScreen(
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToNcertLibrary = { navController.navigate(Screen.NcertLibrary.route) },
+                    onNavigateToSearch = { navController.navigate(Screen.NcertSearch.route) },
+                    onOpenChapter = { chapterId ->
+                        navController.navigate(Screen.NcertChapterDetail.createRoute(chapterId))
+                    }
+                )
+            }
+
+            composable(Screen.NcertLibrary.route) {
+                NcertLibraryScreen(
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToClass = { classNum ->
+                        navController.navigate(Screen.NcertClass.createRoute(classNum))
+                    },
+                    onNavigateToSearch = { navController.navigate(Screen.NcertSearch.route) },
+                    onOpenChapter = { chapterId ->
+                        navController.navigate(Screen.NcertChapterDetail.createRoute(chapterId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.NcertClass.route,
+                arguments = listOf(navArgument("classNum") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val classNum = backStackEntry.arguments?.getInt("classNum") ?: 11
+                NcertClassScreen(
+                    classNumber = classNum,
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToSubject = { cNum, subjectId ->
+                        navController.navigate(Screen.NcertSubject.createRoute(cNum, subjectId))
+                    },
+                    onNavigateToSearch = { navController.navigate(Screen.NcertSearch.route) }
+                )
+            }
+
+            composable(
+                route = Screen.NcertSubject.route,
+                arguments = listOf(
+                    navArgument("classNum") { type = NavType.IntType },
+                    navArgument("subjectId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val classNum = backStackEntry.arguments?.getInt("classNum") ?: 11
+                val subjectId = backStackEntry.arguments?.getString("subjectId").orEmpty()
+                NcertSubjectScreen(
+                    classNumber = classNum,
+                    subjectId = subjectId,
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToBook = { bookId ->
+                        navController.navigate(Screen.NcertBook.createRoute(bookId))
+                    },
+                    onNavigateToSearch = { navController.navigate(Screen.NcertSearch.route) }
+                )
+            }
+
+            composable(
+                route = Screen.NcertBook.route,
+                arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
+                NcertBookScreen(
+                    bookId = bookId,
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToChapterDetail = { chapterId ->
+                        navController.navigate(Screen.NcertChapterDetail.createRoute(chapterId))
+                    },
+                    onNavigateToSearch = { navController.navigate(Screen.NcertSearch.route) }
+                )
+            }
+
+            composable(
+                route = Screen.NcertChapterDetail.route,
+                arguments = listOf(navArgument("chapterId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val chapterId = backStackEntry.arguments?.getString("chapterId").orEmpty()
+                NcertChapterDetailScreen(
+                    chapterId = chapterId,
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToReader = { chId ->
+                        navController.navigate(Screen.NcertReader.createRoute(chId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.NcertReader.route,
+                arguments = listOf(navArgument("chapterId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val chapterId = backStackEntry.arguments?.getString("chapterId").orEmpty()
+                NcertReaderScreen(
+                    chapterId = chapterId,
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.NcertSearch.route) {
+                NcertSearchScreen(
+                    ncertRepository = viewModel.repository.ncertRepository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSelectChapter = { chapterId ->
+                        navController.navigate(Screen.NcertChapterDetail.createRoute(chapterId))
+                    }
                 )
             }
         }

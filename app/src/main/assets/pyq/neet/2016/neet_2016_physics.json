@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2016,
+  "paperSession": "PHASE_1",
+  "historicalPaperId": "NEET_UG_2016_PHASE_1",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "CBSE Official NEET (UG) 2016 Phase-1 Examination Paper & Official Answer Key",
+  "sourceArtifact": "NEET_UG_2016_CBSE_PHASE_1.pdf",
+  "questions": [
+    {
+      "id": "NEET_2016_BIO_PLANT_001",
+      "subjectId": "BIOLOGY",
+      "chapterId": "neet_bio_plant_physio",
+      "topicName": "C3 vs C4 Photosynthesis",
+      "questionText": "The process which makes a major difference between C3 and C4 plants is:",
+      "options": [
+        "Photorespiration",
+        "Respiration",
+        "Transpiration",
+        "Glycolysis"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Photorespiration occurs in C3 plants due to RuBisCO oxygenase activity at high temperature and low CO2. C4 plants possess Kranz anatomy and a CO2 concentrating mechanism, virtually eliminating photorespiration.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2016_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Potentiometer Sensitivity",
+      "questionText": "A potentiometer wire is 100 cm long and a constant potential difference is maintained across it. Two cells are connected in series first to support one another and then in opposite direction. The balance points are obtained at 50 cm and 10 cm from the positive end of wire in the two cases. The ratio of emf's of the cells is:",
+      "options": [
+        "3 : 2",
+        "5 : 1",
+        "5 : 4",
+        "3 : 4"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "In supporting mode: (E1 + E2) ∝ 50. In opposing mode: (E1 - E2) ∝ 10. Dividing: (E1 + E2) / (E1 - E2) = 50 / 10 = 5 / 1. By componendo and dividendo: 2E1 / 2E2 = (5 + 1) / (5 - 1) = 6 / 4 = 3 / 2.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

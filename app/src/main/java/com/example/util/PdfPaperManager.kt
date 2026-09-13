@@ -174,9 +174,8 @@ object PdfPaperManager {
         }
 
         if (!downloadedSuccessfully) {
-            // Generate clean, readable, multi-page vector PDF with questions for NEET exam
             onProgress(0.6f)
-            generateNeetExamPdf(targetFile, paper)
+            generatePaperPdfFromDatabase(context, targetFile, paper)
             onProgress(1f)
         }
 
@@ -184,15 +183,11 @@ object PdfPaperManager {
     }
 
     /**
-     * Generates a multi-page PDF using Android's native android.graphics.pdf.PdfDocument
-     * complete with NTA-style NEET header, instructions, Physics, Chemistry, and Biology sections.
+     * Generates a PDF representing the authentic historical paper state from Room Database.
+     * If no questions are imported for this year, stamps as NOT IMPORTED.
+     * Synthetic questions are strictly forbidden.
      */
-    /**
-     * Generates a clean 5-page PDF using Android's native android.graphics.pdf.PdfDocument
-     * covering all 180 Questions across Physics (Q1-50), Chemistry (Q51-100), Botany (Q101-145),
-     * Zoology (Q146-180), plus an Official 180-Question Answer Key grid.
-     */
-    private fun generateNeetExamPdf(targetFile: File, paper: NeetPyqPdf) {
+    fun generatePaperPdfFromDatabase(context: Context, targetFile: File, paper: NeetPyqPdf) {
         val pdfDocument = PdfDocument()
         val pageWidth = 595 // Standard A4 width in points
         val pageHeight = 842 // Standard A4 height in points
@@ -230,7 +225,10 @@ object PdfPaperManager {
             strokeWidth = 1f
         }
 
-        val all180Questions = com.example.data.model.generateFull180NeetQuestions(paper.year)
+        val learningDao = com.example.data.local.AppDatabase.getDatabase(context).learningDao()
+        val dbQuestions = kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            learningDao.getQuestionsForYearSync(paper.year)
+        }
 
         var pageNum = 1
         var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNum).create()
@@ -240,17 +238,27 @@ object PdfPaperManager {
         fun drawPageFrameAndHeader(title: String) {
             canvas.drawRect(25f, 25f, (pageWidth - 25).toFloat(), (pageHeight - 25).toFloat(), borderPaint)
             var curY = 48f
-            canvas.drawText("NATIONAL TESTING AGENCY (NTA) • NEET (UG) ${paper.year}", 40f, curY, titlePaint)
+            canvas.drawText("AIPMT / NEET (UG) ${paper.year} EXAMINATION PAPER", 40f, curY, titlePaint)
             curY += 15f
-            canvas.drawText("OFFICIAL QUESTION PAPER • ${paper.paperCode} • DURATION: 200 MIN (3h 20m) • MAX MARKS: 720", 40f, curY, subPaint)
+            val subtitle = if (dbQuestions.isEmpty()) {
+                "DATASET STATUS: NOT IMPORTED • ZERO QUESTIONS LOADED"
+            } else {
+                "OFFICIAL HISTORICAL ARCHIVE • ${dbQuestions.size} VERIFIED QUESTIONS"
+            }
+            canvas.drawText(subtitle, 40f, curY, subPaint)
             curY += 12f
-            canvas.drawText("Section: $title • Total Questions: 180 (Q1 to Q180)", 40f, curY, subPaint)
+            canvas.drawText("Section: $title • FOCUSIN Strict Provenance", 40f, curY, subPaint)
             curY += 10f
             canvas.drawLine(40f, curY, (pageWidth - 40).toFloat(), curY, borderPaint)
         }
 
         fun drawFooter() {
-            canvas.drawText("Page $pageNum • NEET UG ${paper.year} Official Paper • All 180 Questions", (pageWidth / 2 - 110).toFloat(), (pageHeight - 35).toFloat(), subPaint)
+            canvas.drawText(
+                "Page $pageNum • NEET/AIPMT ${paper.year} • Provenance Verified • FOCUSIN",
+                (pageWidth / 2 - 150).toFloat(),
+                (pageHeight - 35).toFloat(),
+                subPaint
+            )
         }
 
         fun startNewPage(title: String): Float {
@@ -264,107 +272,88 @@ object PdfPaperManager {
             return 95f
         }
 
-        var currentSubject = "PHYSICS (QUESTIONS 1 TO 50)"
-        drawPageFrameAndHeader(currentSubject)
-        var y = 95f
-
-        for ((idx, q) in all180Questions.withIndex()) {
-            val qNum = idx + 1
-
-            val subjectName = when {
-                qNum <= 50 -> "PHYSICS (QUESTIONS 1 TO 50)"
-                qNum <= 100 -> "CHEMISTRY (QUESTIONS 51 TO 100)"
-                qNum <= 145 -> "BOTANY (QUESTIONS 101 TO 145)"
-                else -> "ZOOLOGY (QUESTIONS 146 TO 180)"
+        if (dbQuestions.isEmpty()) {
+            drawPageFrameAndHeader("DATASET STATUS: NOT IMPORTED")
+            var y = 140f
+            val warningPaint = Paint().apply {
+                color = AndroidColor.rgb(185, 28, 28) // Red-700
+                textSize = 14f
+                isFakeBoldText = true
+                isAntiAlias = true
+            }
+            val bodyPaint = Paint().apply {
+                color = AndroidColor.rgb(30, 41, 59) // Slate-800
+                textSize = 10f
+                isAntiAlias = true
             }
 
-            if (subjectName != currentSubject) {
-                currentSubject = subjectName
-                y = startNewPage(currentSubject)
-            }
-
-            val qText = "${q.questionText}"
-            val optStr = "(A) ${q.options.getOrNull(0)}   (B) ${q.options.getOrNull(1)}   (C) ${q.options.getOrNull(2)}   (D) ${q.options.getOrNull(3)}"
-            val needLines = if (qText.length > 85) 2 else 1
-            val optLines = if (optStr.length > 90) 2 else 1
-            val blockHeight = (needLines * 11 + optLines * 10 + 6).toFloat()
-
-            if (y + blockHeight > pageHeight - 50f) {
-                y = startNewPage(currentSubject)
-            }
-
-            // Render Question Text
-            if (qText.length > 85) {
-                val line1 = qText.take(85)
-                val line2 = qText.drop(85)
-                canvas.drawText(line1, 40f, y, textPaint)
-                y += 11f
-                canvas.drawText(line2, 40f, y, textPaint)
-                y += 11f
-            } else {
-                canvas.drawText(qText, 40f, y, textPaint)
-                y += 11f
-            }
-
-            // Render Options
-            if (optStr.length > 90) {
-                val halfOpt1 = "(A) ${q.options.getOrNull(0)}   (B) ${q.options.getOrNull(1)}"
-                val halfOpt2 = "(C) ${q.options.getOrNull(2)}   (D) ${q.options.getOrNull(3)}"
-                canvas.drawText(halfOpt1, 50f, y, optPaint)
-                y += 10f
-                canvas.drawText(halfOpt2, 50f, y, optPaint)
-                y += 12f
-            } else {
-                canvas.drawText(optStr, 50f, y, optPaint)
-                y += 12f
-            }
-        }
-
-        drawFooter()
-        pdfDocument.finishPage(currentPage)
-
-        // Add Final Page: 180-Question Answer Key Table
-        pageNum++
-        pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNum).create()
-        currentPage = pdfDocument.startPage(pageInfo)
-        canvas = currentPage.canvas
-
-        canvas.drawRect(25f, 25f, (pageWidth - 25).toFloat(), (pageHeight - 25).toFloat(), borderPaint)
-        y = 50f
-        canvas.drawText("OFFICIAL NTA NEET (UG) ${paper.year} • 180-QUESTION ANSWER KEY GRID", 40f, y, titlePaint)
-        y += 14f
-        canvas.drawLine(40f, y, (pageWidth - 40).toFloat(), y, borderPaint)
-        y += 18f
-
-        val answerLetters = listOf("A", "B", "C", "D")
-
-        canvas.drawText("COMPLETE 180 QUESTIONS (Q1 to Q50 Physics, Q51 to Q100 Chem, Q101 to Q145 Botany, Q146 to Q180 Zoo)", 40f, y, subPaint)
-        y += 16f
-
-        for (startQ in 1..180 step 10) {
-            val lineBuf = StringBuilder()
-            for (qNum in startQ until (startQ + 10).coerceAtMost(181)) {
-                val q = all180Questions[qNum - 1]
-                val correctLetter = answerLetters.getOrElse(q.correctOptionIndex) { "A" }
-                lineBuf.append("Q%03d:%s  ".format(qNum, correctLetter))
-            }
-            canvas.drawText(lineBuf.toString(), 40f, y, textPaint)
+            canvas.drawText("HISTORICAL PAPER NOT IMPORTED FOR YEAR ${paper.year}", 40f, y, warningPaint)
+            y += 24f
+            canvas.drawText("Under strict FOCUSIN dataset integrity mandates:", 40f, y, bodyPaint)
+            y += 16f
+            canvas.drawText("• Synthetic, generated, or paraphrased questions are strictly forbidden.", 45f, y, bodyPaint)
             y += 14f
+            canvas.drawText("• Internet or coaching mock items are never labeled as official PYQs.", 45f, y, bodyPaint)
+            y += 14f
+            canvas.drawText("• Historical questions must come from verified official question papers and keys.", 45f, y, bodyPaint)
+            y += 24f
+            canvas.drawText("To populate questions for ${paper.year}, import authentic source JSON into assets/pyq/ or run", 40f, y, bodyPaint)
+            y += 14f
+            canvas.drawText("the Dataset Ingestion Pipeline from Settings.", 40f, y, bodyPaint)
+            drawFooter()
+            pdfDocument.finishPage(currentPage)
+        } else {
+            var currentSubject = dbQuestions.firstOrNull()?.subjectId ?: "GENERAL"
+            drawPageFrameAndHeader(currentSubject)
+            var y = 95f
+
+            for ((idx, q) in dbQuestions.withIndex()) {
+                val qNum = q.originalQuestionNumber ?: (idx + 1)
+                val subjectName = q.subjectId
+                if (subjectName != currentSubject) {
+                    currentSubject = subjectName
+                    y = startNewPage(currentSubject)
+                }
+
+                val qText = "Q$qNum. ${q.questionText}"
+                val opts = q.options
+                val optStr = "(A) ${opts.getOrNull(0) ?: ""}   (B) ${opts.getOrNull(1) ?: ""}   (C) ${opts.getOrNull(2) ?: ""}   (D) ${opts.getOrNull(3) ?: ""}"
+                val needLines = if (qText.length > 85) 2 else 1
+                val optLines = if (optStr.length > 90) 2 else 1
+                val blockHeight = (needLines * 11 + optLines * 10 + 6).toFloat()
+
+                if (y + blockHeight > pageHeight - 50f) {
+                    y = startNewPage(currentSubject)
+                }
+
+                if (qText.length > 85) {
+                    val line1 = qText.take(85)
+                    val line2 = qText.drop(85)
+                    canvas.drawText(line1, 40f, y, textPaint)
+                    y += 11f
+                    canvas.drawText(line2, 40f, y, textPaint)
+                    y += 11f
+                } else {
+                    canvas.drawText(qText, 40f, y, textPaint)
+                    y += 11f
+                }
+
+                if (optStr.length > 90) {
+                    val halfOpt1 = "(A) ${opts.getOrNull(0) ?: ""}   (B) ${opts.getOrNull(1) ?: ""}"
+                    val halfOpt2 = "(C) ${opts.getOrNull(2) ?: ""}   (D) ${opts.getOrNull(3) ?: ""}"
+                    canvas.drawText(halfOpt1, 50f, y, optPaint)
+                    y += 10f
+                    canvas.drawText(halfOpt2, 50f, y, optPaint)
+                    y += 12f
+                } else {
+                    canvas.drawText(optStr, 50f, y, optPaint)
+                    y += 12f
+                }
+            }
+
+            drawFooter()
+            pdfDocument.finishPage(currentPage)
         }
-
-        y += 16f
-        canvas.drawText("HINTS & EXPLANATIONS SUMMARY", 40f, y, sectionPaint)
-        y += 14f
-        canvas.drawText("• Physics: Formula R'=ρL/A, Kirchhoff laws charge & energy, Drift velocity v_d=eEτ/m", 40f, y, subPaint)
-        y += 12f
-        canvas.drawText("• Chemistry: Spontaneity ΔG=ΔH-TΔS < 0, pH=-log[H+], Amine basicity 2°>1°>3°>NH3", 40f, y, subPaint)
-        y += 12f
-        canvas.drawText("• Botany: Primase builds RNA primer, CAM plants scotoactive stomata, Test cross 1:1:1:1", 40f, y, subPaint)
-        y += 12f
-        canvas.drawText("• Zoology: Gastrin stimulates HCl, Residual Volume=1100mL, QRS=Ventricular depolarization", 40f, y, subPaint)
-
-        canvas.drawText("Page $pageNum of $pageNum • Official 180 Question Key • Save Archive", (pageWidth / 2 - 100).toFloat(), (pageHeight - 35).toFloat(), subPaint)
-        pdfDocument.finishPage(currentPage)
 
         FileOutputStream(targetFile).use { out ->
             pdfDocument.writeTo(out)

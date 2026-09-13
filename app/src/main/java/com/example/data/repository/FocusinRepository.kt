@@ -17,6 +17,7 @@ import com.example.data.local.entity.TimetableSessionEntity
 import com.example.data.local.entity.UserSettingsEntity
 import com.example.data.local.entity.VoiceRecordingEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -34,6 +35,10 @@ class FocusinRepository(private val database: AppDatabase) {
     private val userSettingsDao = database.userSettingsDao()
     private val learningDao = database.learningDao()
     private val mistakeDao = database.mistakeDao()
+    private val importedTestDao = database.importedTestDao()
+    private val ncertDao = database.ncertDao()
+
+    val ncertRepository: NcertRepository = NcertRepository(ncertDao)
 
     // Flows
     val allSubjects: Flow<List<SubjectEntity>> = subjectDao.getAllSubjects()
@@ -45,6 +50,9 @@ class FocusinRepository(private val database: AppDatabase) {
     val allVoiceRecordings: Flow<List<VoiceRecordingEntity>> = voiceRecordingDao.getAllRecordings()
     val allAchievements: Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
     val userSettings: Flow<UserSettingsEntity?> = userSettingsDao.getUserSettings()
+
+    // Imported Tests Room Flows
+    val allImportedTests: Flow<List<com.example.data.local.entity.ImportedTestEntity>> = importedTestDao.getAllImportedTests()
 
     // Mistake Diary Room Flows
     val allMistakes: Flow<List<com.example.data.local.entity.MistakeEntity>> = mistakeDao.getAllMistakes()
@@ -66,6 +74,166 @@ class FocusinRepository(private val database: AppDatabase) {
     fun getTopicsForChapter(chapterId: String) = learningDao.getTopicsForChapter(chapterId)
     fun getResourcesForChapter(chapterId: String) = learningDao.getResourcesForChapter(chapterId)
     fun getQuestionsForChapter(chapterId: String) = learningDao.getQuestionsForChapter(chapterId)
+    suspend fun getQuestionsForChapterSync(chapterId: String) = learningDao.getQuestionsForChapterSync(chapterId)
+
+    fun getQuestionsForChapterWithFilters(
+        chapterId: String,
+        sourceExam: String? = null,
+        startYear: Int? = null,
+        endYear: Int? = null,
+        difficulty: String? = null,
+        isOfficialOnly: Boolean = false
+    ) = learningDao.getQuestionsForChapterWithFilters(chapterId, sourceExam, startYear, endYear, difficulty, isOfficialOnly)
+
+    suspend fun getQuestionsForChapterWithFiltersSync(
+        chapterId: String,
+        sourceExam: String? = null,
+        startYear: Int? = null,
+        endYear: Int? = null,
+        difficulty: String? = null,
+        isOfficialOnly: Boolean = false
+    ) = learningDao.getQuestionsForChapterWithFiltersSync(chapterId, sourceExam, startYear, endYear, difficulty, isOfficialOnly)
+
+    fun getQuestionsForChapterAndExam(chapterId: String, sourceExam: String) =
+        learningDao.getQuestionsForChapterAndExam(chapterId, sourceExam)
+
+    fun getQuestionsForChapterAndYear(chapterId: String, year: Int) =
+        learningDao.getQuestionsForChapterAndYear(chapterId, year)
+
+    fun getQuestionsForChapterAndYears(chapterId: String, startYear: Int, endYear: Int) =
+        learningDao.getQuestionsForChapterAndYears(chapterId, startYear, endYear)
+
+    fun getUnansweredQuestionsForChapter(chapterId: String) =
+        learningDao.getUnansweredQuestionsForChapter(chapterId)
+
+    fun getMistakeQuestionsForChapter(chapterId: String) =
+        learningDao.getMistakeQuestionsForChapter(chapterId)
+
+    fun getQuestionCountForChapter(chapterId: String) =
+        learningDao.getQuestionCountForChapter(chapterId)
+
+    suspend fun getQuestionCountForChapterSync(chapterId: String) =
+        learningDao.getQuestionCountForChapterSync(chapterId)
+
+    fun getQuestionCountByYear(chapterId: String) =
+        learningDao.getQuestionCountByYear(chapterId)
+
+    fun getVerifiedQuestionCountByYear(chapterId: String) =
+        learningDao.getVerifiedQuestionCountByYear(chapterId)
+
+    fun getUnverifiedQuestionCountByYear(chapterId: String) =
+        learningDao.getUnverifiedQuestionCountByYear(chapterId)
+
+    suspend fun toggleQuestionBookmark(questionId: String, isBookmarked: Boolean) =
+        learningDao.toggleQuestionBookmark(questionId, isBookmarked)
+
+    fun getQuestionCountByExam(chapterId: String) =
+        learningDao.getQuestionCountByExam(chapterId)
+
+    fun getQuestionCountByTopic(chapterId: String) =
+        learningDao.getQuestionCountByTopic(chapterId)
+
+    suspend fun getQuestionById(id: String) =
+        learningDao.getQuestionById(id)
+
+    fun getTotalQuestionCount(): Flow<Int> = learningDao.getTotalQuestionCount()
+    fun getDistinctExamYears(): Flow<List<Int>> = learningDao.getDistinctExamYears()
+    fun getTotalOfficialPyqCount(): Flow<Int> = learningDao.getTotalOfficialPyqCount()
+    fun getTotalUnverifiedCount(): Flow<Int> = learningDao.getTotalUnverifiedCount()
+    fun getTotalSampleCount(): Flow<Int> = learningDao.getTotalSampleCount()
+    fun getTotalGeneratedCount(): Flow<Int> = learningDao.getTotalGeneratedCount()
+    fun getGlobalYearStats(): Flow<List<com.example.data.local.dao.GlobalYearStats>> = learningDao.getGlobalYearStats()
+
+    fun getHistoricalCoverageReports(): Flow<List<com.example.data.catalog.YearCoverageReport>> {
+        return learningDao.getGlobalYearStats().map { statsList: List<com.example.data.local.dao.GlobalYearStats> ->
+            val statsMap = statsList.associateBy { it.examYear }
+            com.example.data.catalog.HistoricalYearCatalog.ALL_YEARS.map { yearInfo ->
+                val stats = statsMap[yearInfo.year]
+                val actualImported = stats?.totalCount ?: 0
+                val actualVerified = stats?.verifiedCount ?: 0
+                val actualUnverified = stats?.unverifiedCount ?: 0
+                val actualSample = stats?.sampleCount ?: 0
+                val actualPhy = stats?.physicsCount ?: 0
+                val actualChem = stats?.chemistryCount ?: 0
+                val actualBio = stats?.biologyCount ?: 0
+
+                val status = when {
+                    actualImported == 0 -> com.example.data.catalog.DatasetImportStatus.NOT_IMPORTED
+                    actualVerified >= yearInfo.expectedTotal && actualImported >= yearInfo.expectedTotal -> com.example.data.catalog.DatasetImportStatus.VERIFIED
+                    actualVerified > 0 -> com.example.data.catalog.DatasetImportStatus.PARTIAL
+                    actualImported < yearInfo.expectedTotal -> com.example.data.catalog.DatasetImportStatus.PARTIAL
+                    else -> com.example.data.catalog.DatasetImportStatus.IMPORTED_UNVERIFIED
+                }
+
+                com.example.data.catalog.YearCoverageReport(
+                    info = yearInfo,
+                    actualImported = actualImported,
+                    actualVerified = actualVerified,
+                    actualUnverified = actualUnverified,
+                    actualSample = actualSample,
+                    actualPhysics = actualPhy,
+                    actualChemistry = actualChem,
+                    actualBiology = actualBio,
+                    status = status
+                )
+            }
+        }
+    }
+
+    suspend fun importPyqAssets(context: android.content.Context): com.example.data.importer.PyqImportReport {
+        val importer = com.example.data.importer.PyqAssetImporter(context, learningDao)
+        return importer.importAllPyqAssets()
+    }
+
+    val pyqReviewQueueManager = com.example.data.importer.PyqReviewQueueManager(learningDao)
+
+    fun getPyqReviewQueue(): Flow<List<com.example.data.importer.PyqNormalizedQuestion>> =
+        pyqReviewQueueManager.queue
+
+    suspend fun convertPyqSourceDocument(
+        document: com.example.data.importer.PyqSourceDocument
+    ): Pair<List<com.example.data.importer.PyqNormalizedQuestion>, com.example.data.importer.PyqConversionReport> {
+        val existingNaturalKeys = learningDao.getExistingNaturalKeys().toSet()
+        val existingTexts = learningDao.getAllQuestionTexts()
+        val textFingerprints = existingTexts.map { com.example.data.importer.PyqConversionPipeline.generateFingerprint(it) }.toSet()
+
+        val (normalizedQuestions, report) = com.example.data.importer.PyqConversionPipeline.convert(
+            document = document,
+            existingQuestionSignatures = existingNaturalKeys,
+            existingQuestionTextFingerprints = textFingerprints
+        )
+
+        val needsReview = normalizedQuestions.filter { it.needsHumanReview || it.verificationStatus == "UNVERIFIED" }
+        if (needsReview.isNotEmpty()) {
+            pyqReviewQueueManager.addToQueue(needsReview)
+        }
+
+        return Pair(normalizedQuestions, report)
+    }
+
+    suspend fun commitReviewedQuestions(): Int {
+        return pyqReviewQueueManager.commitReviewedToDatabase(learningDao)
+    }
+
+    fun approveReviewItem(questionId: String, citation: String): Boolean =
+        pyqReviewQueueManager.approveAsVerified(questionId, citation)
+
+    fun keepReviewItemUnverified(questionId: String): Boolean =
+        pyqReviewQueueManager.keepUnverified(questionId)
+
+    fun rejectReviewItem(questionId: String): Boolean =
+        pyqReviewQueueManager.rejectQuestion(questionId)
+
+    fun updateReviewItemChapter(questionId: String, subject: String, chapter: String, topic: String): Boolean =
+        pyqReviewQueueManager.updateChapter(questionId, subject, chapter, topic)
+
+    fun updateReviewItemAnswer(questionId: String, answerIdx: Int): Boolean =
+        pyqReviewQueueManager.updateAnswer(questionId, answerIdx)
+
+    fun clearReviewQueue() {
+        pyqReviewQueueManager.clearQueue()
+    }
+
     fun getAttemptsForChapter(chapterId: String) = learningDao.getAttemptsForChapter(chapterId)
 
     suspend fun getChapterProgressById(chapterId: String) = learningDao.getChapterProgressById(chapterId)
@@ -74,7 +242,6 @@ class FocusinRepository(private val database: AppDatabase) {
     suspend fun recordQuestionAttempt(attempt: QuestionAttemptEntity) = learningDao.recordQuestionAttempt(attempt)
     suspend fun recordQuizAttempt(attempt: QuizAttemptRecordEntity) = learningDao.insertQuizAttempt(attempt)
     suspend fun recordQuizAttempt(attempt: QuizAttemptEntity) = learningDao.recordQuizAttempt(attempt)
-    suspend fun toggleQuestionBookmark(questionId: String, isBookmarked: Boolean) = learningDao.toggleQuestionBookmark(questionId, isBookmarked)
     suspend fun updateTopicStatus(topicId: String, status: String) = learningDao.updateTopicStatus(topicId, status)
     suspend fun getQuizAttemptById(id: Long) = learningDao.getQuizAttemptById(id)
     fun getQuizAttemptFlowById(id: Long) = learningDao.getQuizAttemptFlowById(id)
@@ -726,6 +893,57 @@ class FocusinRepository(private val database: AppDatabase) {
     suspend fun recordMistakeReattempt(id: String, isResolved: Boolean) = mistakeDao.recordReattempt(id, isResolved)
     suspend fun deleteMistakeById(id: String) = mistakeDao.deleteMistakeById(id)
     suspend fun deleteAllMistakes() = mistakeDao.deleteAllMistakes()
+
+    // Imported Tests Operations
+    suspend fun getImportedTest(testId: String): com.example.data.local.entity.ImportedTestEntity? = importedTestDao.getImportedTestById(testId)
+    fun getQuestionsForImportedTest(testId: String): Flow<List<com.example.data.local.entity.ImportedQuestionEntity>> = importedTestDao.getQuestionsForTest(testId)
+    suspend fun getQuestionsForImportedTestSync(testId: String): List<com.example.data.local.entity.ImportedQuestionEntity> = importedTestDao.getQuestionsForTestSync(testId)
+    suspend fun insertImportedTest(test: com.example.data.local.entity.ImportedTestEntity) = importedTestDao.insertImportedTest(test)
+    suspend fun insertImportedQuestions(questions: List<com.example.data.local.entity.ImportedQuestionEntity>) = importedTestDao.insertImportedQuestions(questions)
+    suspend fun updateImportedTest(test: com.example.data.local.entity.ImportedTestEntity) = importedTestDao.updateImportedTest(test)
+    suspend fun updateTestProgress(testId: String, currentQuestionIndex: Int, remainingSeconds: Long) =
+        importedTestDao.updateTestProgress(testId, currentQuestionIndex, remainingSeconds)
+
+    suspend fun updateImportedQuestionAnswerState(
+        questionId: String,
+        userAnswer: String?,
+        userAnswerIndex: Int?,
+        isAttempted: Boolean,
+        isMarkedForReview: Boolean,
+        answerState: String,
+        timeSpentSeconds: Int,
+        isCorrect: Boolean?
+    ) = importedTestDao.updateUserAnswerState(
+        questionId = questionId,
+        userAnswer = userAnswer,
+        userAnswerIndex = userAnswerIndex,
+        isAttempted = isAttempted,
+        isMarkedForReview = isMarkedForReview,
+        answerState = answerState,
+        timeSpentSeconds = timeSpentSeconds,
+        isCorrect = isCorrect
+    )
+
+    suspend fun updateImportedQuestionMarkedForReview(questionId: String, isMarked: Boolean) =
+        importedTestDao.updateQuestionMarkedForReview(questionId, isMarked)
+
+    suspend fun resetImportedTestAnswers(testId: String) =
+        importedTestDao.resetTestAnswers(testId)
+
+    suspend fun recordImportedTestResult(
+        testId: String,
+        status: String,
+        score: Int,
+        accuracy: Int,
+        correctCount: Int,
+        wrongCount: Int,
+        unattemptedCount: Int,
+        timeTakenSeconds: Long
+    ) = importedTestDao.recordTestResult(testId, status, score, accuracy, correctCount, wrongCount, unattemptedCount, timeTakenSeconds)
+    suspend fun deleteImportedTest(testId: String) {
+        importedTestDao.deleteQuestionsForTest(testId)
+        importedTestDao.deleteImportedTest(testId)
+    }
 
     private fun isYesterday(dateStr: String): Boolean {
         if (dateStr.isEmpty()) return false

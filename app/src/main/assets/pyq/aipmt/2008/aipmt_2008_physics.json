@@ -1,0 +1,47 @@
+{
+  "sourceExam": "AIPMT",
+  "examYear": 2008,
+  "paperSession": "MAIN",
+  "historicalPaperId": "AIPMT_2008_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "CBSE Official AIPMT 2008 Preliminary Examination Paper & Official Answer Key",
+  "sourceArtifact": "AIPMT_2008_CBSE_MAIN.pdf",
+  "questions": [
+    {
+      "id": "AIPMT_2008_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Ohm's Law & Resistance",
+      "questionText": "A wire of resistance 12 Ω is bent in the form of a circle. The effective resistance between the ends of any diameter is:",
+      "options": [
+        "3 Ω",
+        "6 Ω",
+        "12 Ω",
+        "24 Ω"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "When the wire is bent into a circle, the two semicircular portions each have a resistance of 12 / 2 = 6 Ω. Between the ends of any diameter, these two halves are in parallel. Therefore, R_eq = (6 * 6) / (6 + 6) = 36 / 12 = 3 Ω.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "AIPMT_2008_PHY_CURR_002",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Cell EMF & Internal Resistance",
+      "questionText": "A cell of emf E is connected across an external resistance R. When current is drawn from the cell, the potential difference across the terminals of the cell is V. The internal resistance r of the cell is:",
+      "options": [
+        "(E - V)R / V",
+        "(E - V) / R",
+        "V R / (E - V)",
+        "E R / (E - V)"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Terminal potential difference V = E - Ir = E - (V / R)r. Rearranging gives (V / R)r = E - V, hence r = ((E - V) / V) * R.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

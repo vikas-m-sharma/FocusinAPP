@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
@@ -57,6 +58,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -111,7 +113,8 @@ fun HomeScreen(
     onNavigateToFocus: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onOpenCreateSession: () -> Unit,
-    onNavigateToMistakeDiary: () -> Unit = {}
+    onNavigateToMistakeDiary: () -> Unit = {},
+    onNavigateToPrepare: () -> Unit = {}
 ) {
     val activeSession by viewModel.activeSessionState.collectAsState()
     val todayStats by viewModel.todayStats.collectAsState()
@@ -306,6 +309,83 @@ fun HomeScreen(
                             text = "Open →",
                             fontSize = 13.sp,
                             color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // PREPARE HUB • NCERT LIBRARY QUICK ACCESS CARD
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onNavigateToPrepare() }
+                        .border(1.dp, CyanPrimary.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                        .testTag("home_prepare_hub_card"),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(CyanPrimary.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    tint = CyanPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Prepare • NCERT Library",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        color = EmeraldSuccess.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Classes 9–12",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmeraldSuccess,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Official textbooks, offline reader & study notes",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Open →",
+                            fontSize = 13.sp,
+                            color = CyanPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     }

@@ -1,0 +1,43 @@
+{
+  "sourceExam": "SAMPLE",
+  "examYear": 2024,
+  "paperSession": "DEMO",
+  "questions": [
+    {
+      "id": "SAMPLE_PHY_KIN_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_kinematics",
+      "topicName": "Projectile Motion",
+      "questionText": "[SAMPLE DEMO] A projectile is fired from the surface of the earth with a velocity of 5 m/s and angle θ with the horizontal. Another projectile fired from another planet with a velocity of 3 m/s at the same angle follows a trajectory which is identical with the trajectory of the projectile fired from the earth. The value of the acceleration due to gravity on the planet is (given g = 9.8 m/s²):",
+      "options": [
+        "3.5 m/s²",
+        "5.9 m/s²",
+        "16.3 m/s²",
+        "110.8 m/s²"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Trajectory equation is y = x tan θ - (g / (2 u² cos² θ)) x². For identical trajectories, g / u² must be equal. Hence g_planet / (3)² = g_earth / (5)² => g_planet = 9.8 * 9 / 25 = 3.5 m/s².",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": false
+    },
+    {
+      "id": "SAMPLE_BIO_HUMAN_001",
+      "subjectId": "BIOLOGY",
+      "chapterId": "neet_bio_human_physio",
+      "topicName": "Neural Control & Synapse",
+      "questionText": "[SAMPLE DEMO] During the transmission of nerve impulse through a nerve fibre, the potential on the inner side of the plasma membrane has which type of electric charge?",
+      "options": [
+        "First positive, then negative and continue to be negative",
+        "First negative, then positive and continue to be positive",
+        "First positive, then negative and again back to positive",
+        "First negative, then positive and again back to negative"
+      ],
+      "correctOptionIndex": 3,
+      "explanation": "During resting state, inside is negative (-70 mV). On stimulation, Na+ influx makes it positive (+30 mV depolarization). Then K+ efflux repolarizes it back to negative.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": false
+    }
+  ]
+}

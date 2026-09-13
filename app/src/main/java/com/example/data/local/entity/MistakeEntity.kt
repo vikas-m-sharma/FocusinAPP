@@ -23,5 +23,7 @@ data class MistakeEntity(
     val studentNotes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val isResolved: Boolean = false,
-    val reattemptCount: Int = 0
+    val reattemptCount: Int = 0,
+    val sourceExam: String? = null,
+    val examYear: Int? = null
 )

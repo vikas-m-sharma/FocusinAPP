@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2019,
+  "paperSession": "MAIN",
+  "historicalPaperId": "NEET_UG_2019_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "NTA Official NEET (UG) 2019 Examination Paper & Official Final Answer Key",
+  "sourceArtifact": "NEET_UG_2019_NTA_MAIN.pdf",
+  "questions": [
+    {
+      "id": "NEET_2019_BIO_CELL_001",
+      "subjectId": "BIOLOGY",
+      "chapterId": "neet_bio_cell_cycle",
+      "topicName": "Cell Cycle G0 Phase",
+      "questionText": "Cells in G0 phase:",
+      "options": [
+        "Exit the cell cycle",
+        "Enter the cell cycle",
+        "Suspend the cell cycle",
+        "Terminate the cell cycle"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "According to NCERT Biology (Class 11, Chapter 10), cells that do not divide further exit the G1 phase to enter an inactive stage called the quiescent stage (G0) of the cell cycle, remaining metabolically active.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2019_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Carbon Resistor Color Code",
+      "questionText": "A carbon resistor of (47 ± 4.7) kΩ is to be marked with rings of different colours for its identification. The colour code sequence will be:",
+      "options": [
+        "Yellow - Violet - Orange - Silver",
+        "Yellow - Green - Violet - Gold",
+        "Yellow - Violet - Yellow - Silver",
+        "Violet - Yellow - Orange - Silver"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "47 kΩ = 47 * 10^3 Ω with 10% tolerance (4.7 / 47 = 0.10). Color codes: 4 = Yellow, 7 = Violet, 10^3 = Orange, 10% tolerance = Silver. Sequence: Yellow - Violet - Orange - Silver.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "RATIONALIZED",
+      "isOfficialPYQ": true
+    }
+  ]
+}

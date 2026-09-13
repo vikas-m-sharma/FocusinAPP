@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2013,
+  "paperSession": "MAIN",
+  "historicalPaperId": "NEET_UG_2013_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "CBSE Official NEET (UG) 2013 Examination Paper & Official Answer Key",
+  "sourceArtifact": "NEET_UG_2013_CBSE_MAIN.pdf",
+  "questions": [
+    {
+      "id": "NEET_2013_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Resistance & Wire Stretching",
+      "questionText": "A wire of resistance 4 Ω is stretched to twice its original length. The resistance of the stretched wire would be:",
+      "options": [
+        "8 Ω",
+        "16 Ω",
+        "2 Ω",
+        "4 Ω"
+      ],
+      "correctOptionIndex": 1,
+      "explanation": "When volume is constant (V = A * l = constant), stretching a wire such that l' = 2l causes area A' = A / 2. Since R = ρ * l / A, the new resistance R' = ρ * (2l) / (A / 2) = 4 * (ρ * l / A) = 4 * 4 = 16 Ω.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2013_CHEM_THERMO_001",
+      "subjectId": "CHEMISTRY",
+      "chapterId": "neet_chem_thermodynamics",
+      "topicName": "First Law & Work Done",
+      "questionText": "A gas is allowed to expand in a well insulated container against a constant external pressure of 2.5 atm from an initial volume of 2.5 L to a final volume of 4.5 L. The change in internal energy ΔU of the gas will be (1 L·atm = 101.3 J):",
+      "options": [
+        "-506.5 J",
+        "+506.5 J",
+        "-1136 J",
+        "-500 J"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Since the container is well insulated, q = 0 (adiabatic process). Work done w = -P_ext * ΔV = -2.5 atm * (4.5 - 2.5) L = -5.0 L·atm. In Joules, w = -5.0 * 101.3 J = -506.5 J. By first law ΔU = q + w = 0 + (-506.5 J) = -506.5 J.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

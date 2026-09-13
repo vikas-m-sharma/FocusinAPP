@@ -31,11 +31,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.FileDownload
@@ -43,9 +45,11 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FlightTakeoff
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
@@ -94,6 +98,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.ClassicBlueLight
+import com.example.ui.theme.ClassicBluePrimary
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
@@ -319,11 +325,17 @@ fun QuestionBankScreen(
     viewModel: FocusinViewModel,
     onNavigateToSolvePaper: (String) -> Unit = {},
     onNavigateToPdfReader: (Int) -> Unit = {},
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToImportTest: () -> Unit = {},
+    onNavigateToSolveImportedTest: (String) -> Unit = {},
+    onNavigateToMistakeDiary: () -> Unit = {},
+    onNavigateToAiQuiz: (String) -> Unit = {},
+    onNavigateToPractice: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-    var activeSubTab by remember { mutableStateOf(0) } // 0: Question Papers & PDFs, 1: High-Yield Heatmap, 2: OMR Simulator
+    var activeSubTab by remember { mutableStateOf(0) } // 0: PYQ, 1: PRACTICE, 2: AI QUIZ, 3: MY TESTS, 4: MISTAKE PRACTICE
+    var pyqSubSection by remember { mutableStateOf(0) } // 0: 15-Yr Papers, 1: High-Yield Heatmap, 2: OMR Simulator
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilterEra by remember { mutableStateOf("ALL") }
     var selectedPdfForViewer by remember { mutableStateOf<NeetPyqPdf?>(null) }
@@ -402,7 +414,7 @@ fun QuestionBankScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Three primary student sub-tabs for QBank
+            // Primary 5 student sub-tabs for QBank
             ScrollableTabRow(
                 selectedTabIndex = activeSubTab,
                 containerColor = Slate900,
@@ -424,15 +436,15 @@ fun QuestionBankScreen(
                             Icon(
                                 imageVector = Icons.Default.PictureAsPdf,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(15.dp),
                                 tint = if (activeSubTab == 0) CyanPrimary else Color(0xFF94A3B8)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                "15-Yr Papers & PDFs",
+                                "PYQ",
                                 fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Normal,
                                 color = if (activeSubTab == 0) Color.White else Color(0xFF94A3B8),
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -444,17 +456,17 @@ fun QuestionBankScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.LocalFireDepartment,
+                                imageVector = Icons.Default.School,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (activeSubTab == 1) Color(0xFFF59E0B) else Color(0xFF94A3B8)
+                                modifier = Modifier.size(15.dp),
+                                tint = if (activeSubTab == 1) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                "High-Yield Heatmap",
+                                "PRACTICE",
                                 fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Normal,
                                 color = if (activeSubTab == 1) Color.White else Color(0xFF94A3B8),
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -466,17 +478,61 @@ fun QuestionBankScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.GridOn,
+                                imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (activeSubTab == 2) EmeraldSuccess else Color(0xFF94A3B8)
+                                modifier = Modifier.size(15.dp),
+                                tint = if (activeSubTab == 2) Color(0xFFA78BFA) else Color(0xFF94A3B8)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                "OMR & Speed Tracker",
+                                "AI QUIZ",
                                 fontWeight = if (activeSubTab == 2) FontWeight.Bold else FontWeight.Normal,
                                 color = if (activeSubTab == 2) Color.White else Color(0xFF94A3B8),
-                                fontSize = 13.sp
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                )
+
+                Tab(
+                    selected = activeSubTab == 3,
+                    onClick = { activeSubTab = 3 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (activeSubTab == 3) ClassicBlueLight else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                "MY TESTS",
+                                fontWeight = if (activeSubTab == 3) FontWeight.Bold else FontWeight.Normal,
+                                color = if (activeSubTab == 3) Color.White else Color(0xFF94A3B8),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                )
+
+                Tab(
+                    selected = activeSubTab == 4,
+                    onClick = { activeSubTab = 4 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (activeSubTab == 4) Color(0xFFEF4444) else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                "MISTAKE PRACTICE",
+                                fontWeight = if (activeSubTab == 4) FontWeight.Bold else FontWeight.Normal,
+                                color = if (activeSubTab == 4) Color.White else Color(0xFF94A3B8),
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -486,14 +542,45 @@ fun QuestionBankScreen(
             // Tab Content
             when (activeSubTab) {
                 0 -> {
-                    // TAB 1: 15-Year Question Papers & Offline PDF Downloads
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
+                    // TAB 0: PYQ with sub-section pill bar
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("15-Yr Papers & PDFs", "High-Yield Heatmap", "OMR Simulator").forEachIndexed { idx, label ->
+                                val isSelected = pyqSubSection == idx
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { pyqSubSection = idx },
+                                    label = { Text(label, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CyanPrimary,
+                                        selectedLabelColor = Slate950,
+                                        containerColor = Slate900,
+                                        labelColor = Color(0xFF94A3B8)
+                                    )
+                                )
+                            }
+                        }
+
+                        when (pyqSubSection) {
+                            1 -> HighYieldAnalysisView()
+                            2 -> OmrSheetSimulatorView(
+                                onStartExamWithOmr = {
+                                    onNavigateToSolvePaper("NEET 2024 (OMR Mode)")
+                                }
+                            )
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
+                                    contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
                         // NTA Official Portal & Offline Study Banner
                         item {
                             Card(
@@ -739,21 +826,42 @@ fun QuestionBankScreen(
                         }
                     }
                 }
-
-                1 -> {
-                    // TAB 2: High-Yield PYQ Analysis (Past 15 Years Frequency Heatmap & Weightage)
-                    HighYieldAnalysisView()
-                }
-
-                2 -> {
-                    // TAB 3: OMR Sheet Simulation & Speed Tracking
-                    OmrSheetSimulatorView(
-                        onStartExamWithOmr = {
-                            onNavigateToSolvePaper("NEET 2024 (OMR Mode)")
-                        }
-                    )
-                }
             }
+        }
+    }
+
+    1 -> {
+        // TAB 1: PRACTICE
+        QBankPracticeTabContent(
+            onNavigateToPractice = onNavigateToPractice
+        )
+    }
+
+    2 -> {
+        // TAB 2: AI QUIZ
+        QBankAiQuizTabContent(
+            onNavigateToAiQuiz = onNavigateToAiQuiz
+        )
+    }
+
+    3 -> {
+        // TAB 3: MY TESTS
+        MyTestsTabContent(
+            repository = viewModel.repository,
+            onNavigateToImportTest = onNavigateToImportTest,
+            onNavigateToSolveTest = onNavigateToSolveImportedTest,
+            onNavigateToMistakeDiary = onNavigateToMistakeDiary
+        )
+    }
+
+    4 -> {
+        // TAB 4: MISTAKE PRACTICE
+        MistakePracticeTabContent(
+            repository = viewModel.repository,
+            onNavigateToMistakeDiary = onNavigateToMistakeDiary
+        )
+    }
+}
         }
     }
 
@@ -1469,6 +1577,275 @@ fun NeetPaperPdfCard(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QBankPracticeTabContent(
+    onNavigateToPractice: (String) -> Unit
+) {
+    val subjects = listOf(
+        Triple("Physics", "30 Chapters • 4,500+ MCQs", listOf(
+            "Electrostatics & Capacitance" to "neet_phy_electrostatics",
+            "Current Electricity" to "neet_phy_current_electricity",
+            "Magnetic Effects & AC" to "neet_phy_magnetism",
+            "Ray & Wave Optics" to "neet_phy_optics",
+            "Modern Physics & Semiconductors" to "neet_phy_modern_physics"
+        )),
+        Triple("Chemistry", "30 Chapters • 5,000+ MCQs", listOf(
+            "Chemical Bonding & Molecular Structure" to "neet_chem_bonding",
+            "Thermodynamics & Equilibrium" to "neet_chem_thermo",
+            "Organic Chemistry: Basic Principles" to "neet_chem_organic_basics",
+            "Coordination Compounds" to "neet_chem_coordination",
+            "Solutions & Electrochemistry" to "neet_chem_solutions"
+        )),
+        Triple("Biology (Botany & Zoology)", "38 Chapters • 8,000+ MCQs", listOf(
+            "Cell: The Unit of Life" to "neet_bio_cell",
+            "Principles of Inheritance & Variation" to "neet_bio_genetics",
+            "Human Reproduction & Health" to "neet_bio_reproduction",
+            "Ecosystem & Environmental Issues" to "neet_bio_ecology",
+            "Human Physiology: Digestion & Neural" to "neet_bio_physiology"
+        ))
+    )
+
+    var selectedSubj by remember { mutableStateOf(0) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 14.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = BorderStroke(1.dp, ClassicBluePrimary.copy(alpha = 0.35f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "NEET Chapter-Wise Practice",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Solve curated NCERT-aligned MCQs with instant step-by-step explanations, error analysis, and timer tracking.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Physics", "Chemistry", "Biology").forEachIndexed { idx, subj ->
+                    val isSel = selectedSubj == idx
+                    FilterChip(
+                        selected = isSel,
+                        onClick = { selectedSubj = idx },
+                        label = { Text(subj, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ClassicBluePrimary,
+                            selectedLabelColor = Color.White,
+                            containerColor = Slate900,
+                            labelColor = Color(0xFF94A3B8)
+                        ),
+                        border = BorderStroke(1.dp, if (isSel) ClassicBlueLight else Slate800)
+                    )
+                }
+            }
+        }
+
+        val activeList = subjects[selectedSubj].third
+        items(activeList) { (chapterName, chapterId) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToPractice(chapterId) },
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Slate800)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = chapterName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "High-Yield • NCERT Extracted",
+                            fontSize = 11.sp,
+                            color = ClassicBlueLight
+                        )
+                    }
+
+                    Button(
+                        onClick = { onNavigateToPractice(chapterId) },
+                        colors = ButtonDefaults.buttonColors(containerColor = ClassicBluePrimary),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text("Solve", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QBankAiQuizTabContent(
+    onNavigateToAiQuiz: (String) -> Unit
+) {
+    var selectedSubject by remember { mutableStateOf("Physics") }
+    var selectedCount by remember { mutableStateOf(20) }
+    var selectedDifficulty by remember { mutableStateOf("NEET Standard") }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 14.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = BorderStroke(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.4f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = Color(0xFFA78BFA),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Gemini AI Quiz Generator",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    Text(
+                        text = "Generate targeted custom NEET quizzes tailored to your syllabus with instant AI scoring and concept validation.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = BorderStroke(1.dp, Slate800)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text("Select Subject", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Physics", "Chemistry", "Biology").forEach { subj ->
+                            FilterChip(
+                                selected = selectedSubject == subj,
+                                onClick = { selectedSubject = subj },
+                                label = { Text(subj, fontSize = 12.sp) }
+                            )
+                        }
+                    }
+
+                    Text("Number of Questions", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(10, 20, 45).forEach { cnt ->
+                            FilterChip(
+                                selected = selectedCount == cnt,
+                                onClick = { selectedCount = cnt },
+                                label = { Text("$cnt MCQs", fontSize = 12.sp) }
+                            )
+                        }
+                    }
+
+                    Text("Difficulty Level", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Easy", "NEET Standard", "Tough/Assertion").forEach { diff ->
+                            FilterChip(
+                                selected = selectedDifficulty == diff,
+                                onClick = { selectedDifficulty = diff },
+                                label = { Text(diff, fontSize = 12.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            val chapId = when (selectedSubject) {
+                                "Physics" -> "neet_phy_current_electricity"
+                                "Chemistry" -> "neet_chem_thermo"
+                                else -> "neet_bio_genetics"
+                            }
+                            onNavigateToAiQuiz(chapId)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
+                    ) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("LAUNCH AI QUIZ", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

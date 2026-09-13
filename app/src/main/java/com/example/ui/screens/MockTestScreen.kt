@@ -103,13 +103,9 @@ fun MockTestScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPractice: (String, String) -> Unit = { _, _ -> }
 ) {
-    val testQuestions = remember(testTitle) {
-        val extractedYear = testTitle.filter { it.isDigit() }.toIntOrNull() ?: 2024
-        if (testTitle.contains("Chapter", ignoreCase = true) || testTitle.contains("Speed", ignoreCase = true) || testTitle.contains("Quick", ignoreCase = true)) {
-            com.example.data.model.generateFull180NeetQuestions(extractedYear).take(25)
-        } else {
-            com.example.data.model.generateFull180NeetQuestions(extractedYear) // Complete 180 Questions as per NTA NEET pattern!
-        }
+    val customQuestions by viewModel.customTestQuestions.collectAsState()
+    val testQuestions = remember(testTitle, customQuestions) {
+        customQuestions ?: emptyList()
     }
 
     // User answers map: question index -> selectedOption ("A", "B", "C", "D")
@@ -146,15 +142,16 @@ fun MockTestScreen(
         onDispose {
             speech.stop()
             speech.shutdown()
+            viewModel.clearCustomTestQuestions()
         }
     }
 
-    // Test duration: 200 minutes (3h 20m) for full 180-question NEET paper, or 240 mins for PwD
+    // Test duration: 200 minutes (3h 20m) for full 180-question NEET paper, or proportional for PYQ session
     val totalTimeSeconds = remember(isPwDTest, testQuestions.size) {
         if (isPwDTest) {
-            if (testQuestions.size == 180) 240 * 60L else 40 * 60L
+            if (testQuestions.size >= 180) 240 * 60L else (testQuestions.size * 80L).coerceAtLeast(600L)
         } else {
-            if (testQuestions.size == 180) 200 * 60L else 20 * 60L
+            if (testQuestions.size >= 180) 200 * 60L else (testQuestions.size * 60L).coerceAtLeast(300L)
         }
     }
     val startEpoch = remember { System.currentTimeMillis() }
@@ -256,7 +253,8 @@ fun MockTestScreen(
                     val isCorr = selected == correctOptKey
                     viewModel.recordQuestionAttempt(
                         com.example.data.local.entity.QuestionAttemptRecordEntity(
-                            examId = "NEET",
+                            questionId = q.id,
+                            examId = q.sourceExam ?: "NEET",
                             subjectName = q.subjectName,
                             chapterName = q.chapterName,
                             topicName = q.topicName,
@@ -264,8 +262,8 @@ fun MockTestScreen(
                             selectedOptionIndex = listOf("A", "B", "C", "D").indexOf(selected),
                             correctOptionIndex = q.correctOptionIndex,
                             isCorrect = isCorr,
-                            timeSpentSeconds = timeSpentSeconds / answeredCount.coerceAtLeast(1),
-                            quizType = "MOCK_TEST"
+                            timeSpentSeconds = (timeSpentSeconds / answeredCount.coerceAtLeast(1)).toInt(),
+                            quizType = if (q.isOfficialPYQ && q.sourceVerificationStatus == "VERIFIED") "OFFICIAL_PYQ" else if (q.sourceVerificationStatus == "UNVERIFIED") "UNVERIFIED_PYQ" else "MOCK_TEST"
                         )
                     )
 
@@ -280,7 +278,9 @@ fun MockTestScreen(
                             options = q.options,
                             explanation = q.explanation,
                             subjectName = q.subjectName,
-                            topicName = q.topicName
+                            topicName = q.topicName,
+                            sourceExam = q.sourceExam,
+                            examYear = q.pyqYear
                         )
                     }
                 }
@@ -548,10 +548,58 @@ fun MockTestScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Loading mock test questions...", color = Color(0xFF94A3B8))
+                Card(
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Slate800, RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            color = Color(0xFFFBBF24).copy(alpha = 0.15f),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFBBF24),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "$testTitle — NOT IMPORTED",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Text(
+                            text = "Verified questions have not been imported for this test.\n\nUnder strict FOCUSIN dataset integrity mandates, synthetic questions are never generated or substituted for real historical question papers. Ingest authentic primary-source question papers and answer keys via Settings > Dataset Audit.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+                        Button(
+                            onClick = onNavigateBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Text("Return to PYQ Hub", color = Slate950, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         } else if (isSubmitted && !isReviewingAnswers) {
             // ==========================================
@@ -637,6 +685,27 @@ fun MockTestScreen(
                                         color = Color(0xFF94A3B8),
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
+                                }
+
+                                val sourceBadgeLabel = when (currentQuestion.sourceVerificationStatus) {
+                                    "VERIFIED" -> if (currentQuestion.sourceExam != null && currentQuestion.pyqYear != null) "${currentQuestion.sourceExam} ${currentQuestion.pyqYear}" else "VERIFIED"
+                                    "UNVERIFIED" -> if (currentQuestion.sourceExam != null && currentQuestion.pyqYear != null) "${currentQuestion.sourceExam} ${currentQuestion.pyqYear} (Pending)" else "UNVERIFIED"
+                                    "SAMPLE" -> "SAMPLE"
+                                    else -> null
+                                }
+                                if (sourceBadgeLabel != null) {
+                                    Surface(
+                                        color = if (currentQuestion.sourceVerificationStatus == "VERIFIED") EmeraldSuccess.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = sourceBadgeLabel,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (currentQuestion.sourceVerificationStatus == "VERIFIED") EmeraldSuccess else Color(0xFF94A3B8),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                        )
+                                    }
                                 }
 
                                 // Per-Question Speed Tracker Pill

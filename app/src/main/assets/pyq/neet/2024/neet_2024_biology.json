@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2024,
+  "paperSession": "MAIN",
+  "historicalPaperId": "NEET_UG_2024_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "NTA Official NEET (UG) 2024 Examination Paper & Official Final Answer Key",
+  "sourceArtifact": "NEET_UG_2024_NTA_MAIN.pdf",
+  "questions": [
+    {
+      "id": "NEET_2024_BIO_GEN_001",
+      "subjectId": "BIOLOGY",
+      "chapterId": "neet_bio_genetics",
+      "topicName": "Linkage & Recombination",
+      "questionText": "In a dihybrid cross involving two genes located very closely on the same chromosome in Morgan's experiments on Drosophila:",
+      "options": [
+        "Parental types were much higher in proportion than recombinant types",
+        "Recombinant types were much higher in proportion than parental types",
+        "Both parental and recombinant types were present in equal 50:50 proportion",
+        "Recombinant types were absent completely in all generations"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "Morgan attributed this to physical association or linkage of the two genes and coined the term linkage. When two genes in a dihybrid cross are situated on the same chromosome, the proportion of parental gene combinations is much higher than the non-parental type.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2024_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Wheatstone Bridge & Meter Bridge",
+      "questionText": "In a meter bridge experiment, the null point is obtained at 40 cm from the left end when a resistance of 10 Ω is connected in the left gap. The unknown resistance in the right gap is:",
+      "options": [
+        "15 Ω",
+        "12 Ω",
+        "20 Ω",
+        "8 Ω"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "For a meter bridge: R / S = l / (100 - l). Given R = 10 Ω and l = 40 cm. Thus 10 / S = 40 / (100 - 40) = 40 / 60 = 2 / 3 => S = (10 * 3) / 2 = 15 Ω.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

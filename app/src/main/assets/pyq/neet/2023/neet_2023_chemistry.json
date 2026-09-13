@@ -1,0 +1,47 @@
+{
+  "sourceExam": "NEET_UG",
+  "examYear": 2023,
+  "paperSession": "MAIN",
+  "historicalPaperId": "NEET_UG_2023_MAIN",
+  "sourceVerificationStatus": "VERIFIED",
+  "sourceReference": "NTA Official NEET (UG) 2023 Examination Paper & Official Final Answer Key",
+  "sourceArtifact": "NEET_UG_2023_NTA_MAIN.pdf",
+  "questions": [
+    {
+      "id": "NEET_2023_CHEM_THERMO_001",
+      "subjectId": "CHEMISTRY",
+      "chapterId": "neet_chem_thermodynamics",
+      "topicName": "Spontaneity & Gibbs Free Energy",
+      "questionText": "For a certain reaction, ΔH = 30 kJ/mol and ΔS = 100 J/(K·mol). At what temperature will the reaction become spontaneous, considering ΔH and ΔS are independent of temperature?",
+      "options": [
+        "T < 300 K",
+        "T > 300 K",
+        "T = 300 K",
+        "At any temperature"
+      ],
+      "correctOptionIndex": 1,
+      "explanation": "For spontaneity, ΔG = ΔH - TΔS < 0. Hence, T > ΔH / ΔS. Here ΔH = 30000 J/mol and ΔS = 100 J/(K·mol). T > 30000 / 100 = 300 K. Therefore, the reaction is spontaneous when T > 300 K.",
+      "difficulty": "MEDIUM",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    },
+    {
+      "id": "NEET_2023_PHY_CURR_001",
+      "subjectId": "PHYSICS",
+      "chapterId": "neet_phy_current_electricity",
+      "topicName": "Kirchhoff's Rules & Bridge",
+      "questionText": "The resistance of platinum wire at 0 °C is 2 Ω and at 100 °C it is 2.5 Ω. The temperature coefficient of resistance of the wire is:",
+      "options": [
+        "2.5 * 10^-3 °C^-1",
+        "5.0 * 10^-3 °C^-1",
+        "1.25 * 10^-3 °C^-1",
+        "2.0 * 10^-3 °C^-1"
+      ],
+      "correctOptionIndex": 0,
+      "explanation": "R_t = R_0 (1 + α * ΔT). Here 2.5 = 2 (1 + α * 100) => 2.5 / 2 = 1.25 = 1 + 100α => 100α = 0.25 => α = 0.25 / 100 = 2.5 * 10^-3 °C^-1.",
+      "difficulty": "EASY",
+      "syllabusStatus": "CURRENT",
+      "isOfficialPYQ": true
+    }
+  ]
+}

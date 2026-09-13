@@ -78,6 +78,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -103,7 +104,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.NeetQuestion
-import com.example.data.model.generateFull180NeetQuestions
+import com.example.data.model.toNeetQuestion
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.RoseError
@@ -156,8 +157,15 @@ fun QuestionPaperViewerScreen(
             )
     }
 
-    val questionsList = remember(year) {
-        generateFull180NeetQuestions(year)
+    var isArchiveVerified by remember { mutableStateOf(PdfPaperManager.isPaperDownloaded(context, year)) }
+    var isGeneratingTemplate by remember { mutableStateOf(false) }
+
+    val database = remember { com.example.data.local.AppDatabase.getDatabase(context) }
+    val dbQuestionsFlow = remember(year) { database.learningDao().getQuestionsForYear(year) }
+    val dbQuestions by dbQuestionsFlow.collectAsState(initial = emptyList())
+
+    val questionsList = remember(dbQuestions) {
+        dbQuestions.map { it.toNeetQuestion() }
     }
 
     // ==========================================
@@ -238,18 +246,15 @@ fun QuestionPaperViewerScreen(
         }
     }
 
-    // Initialize or generate PDF file for year
+    // Initialize PDF file for year if verified archival file exists
     LaunchedEffect(year) {
         val file = PdfPaperManager.getPdfFileForYear(context, year)
         if (file.exists() && file.length() > 0) {
+            isArchiveVerified = true
             totalPages = PdfPaperManager.getPageCount(file).coerceAtLeast(1)
             loadPdfPage(0)
         } else {
-            scope.launch {
-                val generated = PdfPaperManager.downloadOrGeneratePaperPdf(context, paperObj)
-                totalPages = PdfPaperManager.getPageCount(generated).coerceAtLeast(1)
-                loadPdfPage(0)
-            }
+            isArchiveVerified = false
         }
     }
 
@@ -635,7 +640,90 @@ fun QuestionPaperViewerScreen(
             }
         }
     ) { innerPadding ->
-        if (isSubmitted) {
+        if (!isArchiveVerified || questionsList.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Slate800, RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Slate900),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            color = if (questionsList.isEmpty()) RoseError.copy(alpha = 0.15f) else Color(0xFFFBBF24).copy(alpha = 0.15f),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = if (questionsList.isEmpty()) RoseError else Color(0xFFFBBF24),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (questionsList.isEmpty()) "NEET / AIPMT $year — NOT IMPORTED" else "Official paper archive pending verification",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Text(
+                            text = if (questionsList.isEmpty()) {
+                                "No verified questions have been imported into the database for Year $year.\n\nUnder strict FOCUSIN dataset integrity mandates, synthetic questions are never generated as historical PYQs. Ingest authentic primary-source question papers and answer keys via Settings > Dataset Audit."
+                            } else {
+                                "Archival PDF is being verified against original NTA sources for NEET $year.\n\nSynthetic PDFs are strictly prohibited to ensure only 100% authentic question papers appear in your archive."
+                            },
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    isGeneratingTemplate = true
+                                    val generated = PdfPaperManager.downloadOrGeneratePaperPdf(context, paperObj)
+                                    totalPages = PdfPaperManager.getPageCount(generated).coerceAtLeast(1)
+                                    loadPdfPage(0)
+                                    isArchiveVerified = true
+                                    isGeneratingTemplate = false
+                                }
+                            },
+                            border = BorderStroke(1.dp, Slate800),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text(
+                                text = if (isGeneratingTemplate) "Loading Paper Document..." else "View Paper Document Archive",
+                                color = CyanPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Button(
+                            onClick = onNavigateBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = Slate800),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text("Return to Question Bank", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        } else if (isSubmitted) {
             // ==========================================
             // EVALUATION RESULT DASHBOARD
             // ==========================================

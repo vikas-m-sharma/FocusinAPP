@@ -47,11 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.QuestionEntity
+import com.example.data.model.toNeetQuestion
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.Slate800
@@ -66,14 +68,17 @@ fun BookmarksScreen(
     viewModel: FocusinViewModel,
     onNavigateBack: () -> Unit
 ) {
-    var bookmarkedQuestions by remember { mutableStateOf(com.example.data.model.sampleNeetQuestions) }
+    val bookmarkedEntities by viewModel.getBookmarkedQuestions().collectAsState(initial = emptyList())
+    val bookmarkedQuestions = remember(bookmarkedEntities) {
+        bookmarkedEntities.map { it.toNeetQuestion() }
+    }
     var selectedSubjectFilter by remember { mutableStateOf("ALL") }
     val expandedState = remember { mutableStateMapOf<String, Boolean>() }
 
     val filteredQuestions = when (selectedSubjectFilter) {
-        "PHYSICS" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "PHYSICS" }
-        "CHEMISTRY" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "CHEMISTRY" }
-        "BIOLOGY" -> bookmarkedQuestions.filter { it.subjectName.uppercase() == "BIOLOGY" }
+        "PHYSICS" -> bookmarkedQuestions.filter { it.subjectName.uppercase().contains("PHYSIC") }
+        "CHEMISTRY" -> bookmarkedQuestions.filter { it.subjectName.uppercase().contains("CHEM") }
+        "BIOLOGY" -> bookmarkedQuestions.filter { it.subjectName.uppercase().contains("BIO") }
         else -> bookmarkedQuestions
     }
 
@@ -205,11 +210,30 @@ fun BookmarksScreen(
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
+
+                                    val badgeLabel = when (question.sourceVerificationStatus) {
+                                        "VERIFIED" -> if (question.sourceExam != null && question.pyqYear != null) "${question.sourceExam} ${question.pyqYear}" else "VERIFIED"
+                                        "UNVERIFIED" -> if (question.sourceExam != null && question.pyqYear != null) "${question.sourceExam} ${question.pyqYear} (Unverified)" else "UNVERIFIED"
+                                        "SAMPLE" -> "SAMPLE"
+                                        else -> "PRACTICE"
+                                    }
+                                    Surface(
+                                        color = if (question.sourceVerificationStatus == "VERIFIED") EmeraldSuccess.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = badgeLabel,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (question.sourceVerificationStatus == "VERIFIED") EmeraldSuccess else Color(0xFF94A3B8),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                        )
+                                    }
                                 }
 
                                 IconButton(
                                     onClick = {
-                                        bookmarkedQuestions = bookmarkedQuestions.filter { it.id != question.id }
+                                        viewModel.toggleQuestionBookmark(question.id, false)
                                     }
                                 ) {
                                     Icon(
