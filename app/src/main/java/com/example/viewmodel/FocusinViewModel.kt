@@ -358,6 +358,7 @@ class FocusinViewModel(application: Application) : AndroidViewModel(application)
     fun getTotalUnverifiedCount(): Flow<Int> = repository.getTotalUnverifiedCount()
     fun getTotalSampleCount(): Flow<Int> = repository.getTotalSampleCount()
     fun getTotalGeneratedCount(): Flow<Int> = repository.getTotalGeneratedCount()
+    fun getTotalImportedPapersCount(): Flow<Int> = repository.getTotalImportedPapersCount()
     fun getHistoricalCoverageReports(): Flow<List<com.example.data.catalog.YearCoverageReport>> =
         repository.getHistoricalCoverageReports()
 

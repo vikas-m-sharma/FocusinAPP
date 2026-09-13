@@ -160,6 +160,9 @@ interface LearningDao {
     @Query("SELECT COUNT(*) FROM questions WHERE sourceVerificationStatus = 'GENERATED'")
     fun getTotalGeneratedCount(): Flow<Int>
 
+    @Query("SELECT COUNT(DISTINCT COALESCE(historicalPaperId, sourceExam || '_' || examYear)) FROM questions WHERE examYear IS NOT NULL")
+    fun getTotalImportedPapersCount(): Flow<Int>
+
     @Query("""
         SELECT 
             examYear,
@@ -167,6 +170,8 @@ interface LearningDao {
             SUM(CASE WHEN sourceVerificationStatus = 'VERIFIED' THEN 1 ELSE 0 END) as verifiedCount,
             SUM(CASE WHEN sourceVerificationStatus = 'UNVERIFIED' THEN 1 ELSE 0 END) as unverifiedCount,
             SUM(CASE WHEN sourceVerificationStatus = 'SAMPLE' THEN 1 ELSE 0 END) as sampleCount,
+            COUNT(DISTINCT historicalPaperId) as paperCount,
+            MAX(sourceExam) as detectedExam,
             SUM(CASE WHEN subjectId = 'PHYSICS' THEN 1 ELSE 0 END) as physicsCount,
             SUM(CASE WHEN subjectId = 'CHEMISTRY' THEN 1 ELSE 0 END) as chemistryCount,
             SUM(CASE WHEN subjectId = 'BIOLOGY' THEN 1 ELSE 0 END) as biologyCount
@@ -297,6 +302,8 @@ data class GlobalYearStats(
     val verifiedCount: Int,
     val unverifiedCount: Int,
     val sampleCount: Int,
+    val paperCount: Int = 0,
+    val detectedExam: String? = null,
     val physicsCount: Int,
     val chemistryCount: Int,
     val biologyCount: Int

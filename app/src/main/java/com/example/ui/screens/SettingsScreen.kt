@@ -116,12 +116,13 @@ fun SettingsScreen(
     val unverifiedPyqCount by viewModel.getTotalUnverifiedCount().collectAsState(initial = 0)
     val sampleCount by viewModel.getTotalSampleCount().collectAsState(initial = 0)
     val generatedCount by viewModel.getTotalGeneratedCount().collectAsState(initial = 0)
+    val totalImportedPapers by viewModel.getTotalImportedPapersCount().collectAsState(initial = 0)
     val coverageReports by viewModel.getHistoricalCoverageReports().collectAsState(initial = emptyList())
     val pyqImportReport by viewModel.pyqImportReport.collectAsState()
     val distinctYears by viewModel.getDistinctExamYears().collectAsState(initial = emptyList())
     val missingExamYears = remember(distinctYears) {
         val presentSet = distinctYears.toSet()
-        (2005..2025).filter { !presentSet.contains(it) }
+        (2006..2025).filter { !presentSet.contains(it) }
     }
 
     val datasetManifest = remember {
@@ -728,7 +729,7 @@ fun SettingsScreen(
                                 shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(
-                                    text = if (verifiedPyqCount > 0) "VERIFIED READY ($verifiedPyqCount VERIFIED)" else "AWAITING PRIMARY EVIDENCE (0 VERIFIED)",
+                                    text = if (verifiedPyqCount > 0) "VERIFIED READY ($verifiedPyqCount VERIFIED)" else "ACTIVE AUDIT TRAIL ($verifiedPyqCount VERIFIED)",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (verifiedPyqCount > 0) EmeraldSuccess else Color(0xFFFBBF24),
@@ -737,14 +738,82 @@ fun SettingsScreen(
                             }
                         }
 
-                        Text(
-                            text = "Phase 5 Dataset Ingestion: Real historical AIPMT & NEET UG archives with authentic primary provenance. Synthetic questions are strictly prohibited from historical PYQ cataloging.",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            lineHeight = 17.sp
-                        )
+                        // Authenticity Notice
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Slate950,
+                            border = BorderStroke(1.dp, Slate800),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = CyanPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "FOCUSIN includes authentic historical PYQs where source material is available and verified. Missing years are not fabricated.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFCBD5E1),
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
 
-                        // Metrics Grid: DB Total, Verified (0), Unverified, Sample, Generated
+                        // Live Audit Metrics
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Slate850)
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("Audit Summary (Live Database):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("• Coverage Window:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("2006–2025 (20 Years)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("• Total Imported Papers:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$totalImportedPapers", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("• Total Imported Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$totalQuestionsDb", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("• Verified Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$verifiedPyqCount", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (verifiedPyqCount > 0) EmeraldSuccess else Color(0xFF94A3B8))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("• Unverified Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$unverifiedPyqCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFBBF24))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                val partialCount = coverageReports.count { it.status == com.example.data.catalog.DatasetImportStatus.PARTIAL }
+                                Text("• Partial Papers:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$partialCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFF59E0B))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                val notImportedCount = coverageReports.count { it.status == com.example.data.catalog.DatasetImportStatus.NOT_IMPORTED }
+                                Text("• Not Imported Years:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$notImportedCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF64748B))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                val rejectedCount = pyqImportReport?.invalidCount ?: 0
+                                Text("• Rejected Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("$rejectedCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (rejectedCount > 0) Color(0xFFEF4444) else EmeraldSuccess)
+                            }
+                        }
+
+                        // Metrics Grid: DB Total, Verified, Unverified, Sample, Generated
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -811,7 +880,7 @@ fun SettingsScreen(
                             }
                         }
 
-                        // Authoritative 21-Year Coverage Matrix (2005 - 2025)
+                        // Authoritative 20-Year Coverage Matrix (2006 - 2025)
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -819,20 +888,20 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Historical Coverage Tracking (2005-2025)",
+                                    text = "Historical PYQ Coverage (2006–2025)",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                                 Text(
-                                    text = "${coverageReports.count { it.actualImported > 0 }} / 21 Imported",
+                                    text = "${coverageReports.count { it.actualImported > 0 }} / 20 Available",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFFFBBF24)
                                 )
                             }
 
-                            // Coverage List for all 21 years
+                            // Coverage List for all 20 years
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -846,13 +915,13 @@ fun SettingsScreen(
                                     val badgeColor = when (report.status) {
                                         com.example.data.catalog.DatasetImportStatus.VERIFIED -> EmeraldSuccess
                                         com.example.data.catalog.DatasetImportStatus.PARTIAL -> Color(0xFFF59E0B)
-                                        com.example.data.catalog.DatasetImportStatus.IMPORTED_UNVERIFIED -> Color(0xFFFBBF24)
+                                        com.example.data.catalog.DatasetImportStatus.UNVERIFIED -> Color(0xFFFBBF24)
                                         com.example.data.catalog.DatasetImportStatus.NOT_IMPORTED -> Color(0xFF64748B)
                                     }
                                     val statusLabel = when (report.status) {
                                         com.example.data.catalog.DatasetImportStatus.VERIFIED -> "VERIFIED"
                                         com.example.data.catalog.DatasetImportStatus.PARTIAL -> "PARTIAL (${report.actualImported}/${report.info.expectedTotal})"
-                                        com.example.data.catalog.DatasetImportStatus.IMPORTED_UNVERIFIED -> "UNVERIFIED (${report.actualImported}/${report.info.expectedTotal})"
+                                        com.example.data.catalog.DatasetImportStatus.UNVERIFIED -> "UNVERIFIED (${report.actualImported}/${report.info.expectedTotal})"
                                         com.example.data.catalog.DatasetImportStatus.NOT_IMPORTED -> "NOT IMPORTED"
                                     }
 
@@ -868,7 +937,7 @@ fun SettingsScreen(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
-                                                    text = "${report.info.exam} ${report.info.year}",
+                                                    text = "${report.info.year} • ${report.detectedExam}",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = if (isImported) Color.White else Color(0xFF94A3B8)
@@ -882,13 +951,13 @@ fun SettingsScreen(
                                             }
                                             if (isImported) {
                                                 Text(
-                                                    text = "Phy: ${report.actualPhysics}/${report.info.expectedPhysics} • Chem: ${report.actualChemistry}/${report.info.expectedChemistry} • Bio: ${report.actualBiology}/${report.info.expectedBiology} | Verified: ${report.actualVerified}",
+                                                    text = "Imported Papers: ${report.actualPapers} • Questions: ${report.actualImported} (Phy: ${report.actualPhysics}, Chem: ${report.actualChemistry}, Bio: ${report.actualBiology}) • Verified: ${report.actualVerified}",
                                                     fontSize = 9.sp,
                                                     color = Color(0xFF94A3B8)
                                                 )
                                             } else {
                                                 Text(
-                                                    text = "Status: NOT IMPORTED | Awaiting Primary Source Ingestion",
+                                                    text = "Status: NOT IMPORTED",
                                                     fontSize = 9.sp,
                                                     color = Color(0xFF475569)
                                                 )

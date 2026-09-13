@@ -75,7 +75,7 @@ fun ChapterPyqHubView(
     matchingQuestionsCount: Int,
     selectedExamFilter: String?, // null = ALL, "NEET_UG", "AIPMT"
     onSelectExamFilter: (String?) -> Unit,
-    selectedYearFilter: String, // "ALL", "LAST_5", "LAST_10", "2005_2025"
+    selectedYearFilter: String, // "ALL", "LAST_5", "LAST_10", "2006_2025"
     onSelectYearFilter: (String) -> Unit,
     selectedStatusFilter: String, // "ALL", "UNANSWERED", "MISTAKES"
     onSelectStatusFilter: (String) -> Unit,
@@ -150,83 +150,90 @@ fun ChapterPyqHubView(
             }
         }
 
-        // Ingestion Pending & Verification Status Banner
-        if (verifiedCount == 0) {
-            item {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Slate900),
-                    border = BorderStroke(1.dp, Color(0xFFFBBF24).copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+        // Historical PYQ Coverage & Authenticity Policy Card
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = BorderStroke(1.dp, if (verifiedCount > 0) EmeraldSuccess.copy(alpha = 0.3f) else Color(0xFFFBBF24).copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                Icons.Default.Info,
+                                Icons.Default.History,
                                 contentDescription = null,
-                                tint = Color(0xFFFBBF24),
+                                tint = if (verifiedCount > 0) EmeraldSuccess else Color(0xFFFBBF24),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Historical Ingestion Pending",
+                                text = "Historical PYQ Coverage",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFBBF24)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "• Verified PYQs: 0\n• Unverified Historical: $unverifiedCount\n• Policy: Zero synthetic or fabricated questions are served to preserve authenticity.",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            lineHeight = 18.sp
-                        )
-                        if (missingYears.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "Missing Exam Years (${missingYears.size} years):",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
                                 color = Color.White
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                missingYears.take(15).forEach { yr ->
-                                    Surface(
-                                        color = Slate850,
-                                        shape = RoundedCornerShape(6.dp),
-                                        border = BorderStroke(1.dp, Slate800)
-                                    ) {
-                                        Text(
-                                            text = "$yr",
-                                            fontSize = 10.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = Color(0xFF94A3B8),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                        )
-                                    }
-                                }
-                                if (missingYears.size > 15) {
-                                    Surface(
-                                        color = Slate850,
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(
-                                            text = "+${missingYears.size - 15} more",
-                                            fontSize = 10.sp,
-                                            color = Color(0xFF64748B),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                        )
-                                    }
-                                }
-                            }
+                        }
+
+                        val availableYearsCount = (20 - missingYears.size).coerceAtLeast(0)
+                        Surface(
+                            color = if (verifiedCount > 0) EmeraldSuccess.copy(alpha = 0.15f) else Color(0xFFFBBF24).copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "$availableYearsCount / 20 Available",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (verifiedCount > 0) EmeraldSuccess else Color(0xFFFBBF24),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Slate950, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("• Coverage Window:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                            Text("2006–2025", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            val availableYearsCount = (20 - missingYears.size).coerceAtLeast(0)
+                            Text("• Available Years:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                            Text("$availableYearsCount / 20", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("• Verified Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                            Text("$verifiedCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (verifiedCount > 0) EmeraldSuccess else Color(0xFF94A3B8))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("• Unverified Questions:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                            Text("$unverifiedCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFBBF24))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("• Imported Papers:", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                            Text("${yearDistribution.size}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "FOCUSIN includes authentic historical PYQs where source material is available and verified. Missing years are not fabricated.",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8),
+                        lineHeight = 15.sp
+                    )
                 }
             }
         }
@@ -495,7 +502,7 @@ fun ChapterPyqHubView(
                             "ALL" to "ALL",
                             "LAST_5" to "LAST 5 YRS",
                             "LAST_10" to "LAST 10 YRS",
-                            "2005_2025" to "2005–2025"
+                            "2006_2025" to "2006–2025"
                         ).forEach { (id, label) ->
                             FilterChip(
                                 selected = selectedYearFilter == id,

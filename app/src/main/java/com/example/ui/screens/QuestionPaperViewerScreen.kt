@@ -403,7 +403,7 @@ fun QuestionPaperViewerScreen(
         )
     }
 
-    // Modal Bottom Sheet: Full 180-Question OMR Grid Sheet
+    // Modal Bottom Sheet: Full OMR Grid Sheet
     if (showOmrSheetModal) {
         ModalBottomSheet(
             onDismissRequest = { showOmrSheetModal = false },
@@ -421,7 +421,7 @@ fun QuestionPaperViewerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("180-Question OMR Answering Sheet", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("${questionsList.size}-Question OMR Answering Sheet", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text("Answered: $answeredCount | Marked for Review: ${markedForReview.size}", fontSize = 12.sp, color = Color(0xFF94A3B8))
                     }
                     Button(
@@ -439,12 +439,31 @@ fun QuestionPaperViewerScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Subject Filters inside OMR Palette
+                val availableSubjects = remember(questionsList) {
+                    val subjs = mutableListOf("ALL")
+                    val foundSubjects = questionsList.map { it.subjectName.uppercase().trim() }.distinct()
+                    if (foundSubjects.any { it.contains("PHYSIC") }) subjs.add("PHYSICS")
+                    if (foundSubjects.any { it.contains("CHEM") }) subjs.add("CHEMISTRY")
+                    if (foundSubjects.any { it.contains("BOTANY") }) subjs.add("BOTANY")
+                    if (foundSubjects.any { it.contains("ZOO") }) subjs.add("ZOOLOGY")
+                    if (foundSubjects.any { it.contains("BIO") && !it.contains("BOTANY") && !it.contains("ZOO") }) subjs.add("BIOLOGY")
+                    foundSubjects.forEach { s ->
+                        if (s.isNotBlank() && !subjs.contains(s) && !subjs.any { it.contains(s) || s.contains(it) }) {
+                            subjs.add(s)
+                        }
+                    }
+                    if (subjs.size == 1) {
+                        listOf("ALL", "PHYSICS", "CHEMISTRY", "BOTANY", "ZOOLOGY")
+                    } else {
+                        subjs
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val subjects = listOf("ALL", "PHYSICS", "CHEMISTRY", "BOTANY", "ZOOLOGY")
-                    subjects.forEach { subj ->
+                    availableSubjects.forEach { subj ->
                         val isSel = selectedSubjectTab == subj
                         Surface(
                             modifier = Modifier
@@ -466,76 +485,106 @@ fun QuestionPaperViewerScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Filtered Question Grid
-                val filteredIndices = questionsList.indices.filter { idx ->
-                    val qNum = idx + 1
-                    when (selectedSubjectTab) {
-                        "PHYSICS" -> qNum in 1..50
-                        "CHEMISTRY" -> qNum in 51..100
-                        "BOTANY" -> qNum in 101..145
-                        "ZOOLOGY" -> qNum in 146..180
-                        else -> true
+                // Filtered Question Grid based on Question Subject and Topics
+                val filteredIndices = remember(questionsList, selectedSubjectTab) {
+                    questionsList.indices.filter { idx ->
+                        if (selectedSubjectTab == "ALL") return@filter true
+                        val q = questionsList.getOrNull(idx) ?: return@filter false
+                        val s = q.subjectName.uppercase().trim()
+                        val t = q.topicName.uppercase().trim()
+                        when (selectedSubjectTab) {
+                            "PHYSICS" -> s.contains("PHYSIC")
+                            "CHEMISTRY" -> s.contains("CHEM")
+                            "BOTANY" -> s.contains("BOTANY") || (s.contains("BIO") && (t.contains("BOTANY") || !t.contains("ZOO")))
+                            "ZOOLOGY" -> s.contains("ZOO") || (s.contains("BIO") && t.contains("ZOO"))
+                            "BIOLOGY" -> s.contains("BIO") || s.contains("BOTANY") || s.contains("ZOO")
+                            else -> s.contains(selectedSubjectTab.uppercase()) || t.contains(selectedSubjectTab.uppercase())
+                        }
                     }
                 }
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(5),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp)
-                ) {
-                    items(filteredIndices) { index ->
-                        val isAnswered = selectedOptions.containsKey(index)
-                        val isReview = markedForReview[index] == true
-                        val isCurrent = index == currentIndex
-
-                        val bgColor = when {
-                            isCurrent -> CyanPrimary
-                            isReview -> Color(0xFFFBBF24)
-                            isAnswered -> EmeraldSuccess
-                            else -> Slate850
-                        }
-
-                        val textColor = when {
-                            isCurrent || isReview -> Slate950
-                            else -> Color.White
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(bgColor)
-                                .clickable {
-                                    currentIndex = index
-                                    // Also jump PDF page based on question
-                                    val targetPage = when {
-                                        index < 50 -> 0
-                                        index < 100 -> 1
-                                        index < 145 -> 2
-                                        else -> 3
-                                    }
-                                    loadPdfPage(targetPage)
-                                    showOmrSheetModal = false
-                                },
-                            contentAlignment = Alignment.Center
+                if (filteredIndices.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Q${index + 1}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textColor
-                                )
-                                if (isAnswered) {
+                            Text(
+                                text = "No $selectedSubjectTab questions found in this paper",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            OutlinedButton(
+                                onClick = { selectedSubjectTab = "ALL" },
+                                border = BorderStroke(1.dp, CyanPrimary),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Show All Questions", color = CyanPrimary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(5),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(380.dp)
+                    ) {
+                        items(filteredIndices) { index ->
+                            val isAnswered = selectedOptions.containsKey(index)
+                            val isReview = markedForReview[index] == true
+                            val isCurrent = index == currentIndex
+
+                            val bgColor = when {
+                                isCurrent -> CyanPrimary
+                                isReview -> Color(0xFFFBBF24)
+                                isAnswered -> EmeraldSuccess
+                                else -> Slate850
+                            }
+
+                            val textColor = when {
+                                isCurrent || isReview -> Slate950
+                                else -> Color.White
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(bgColor)
+                                    .clickable {
+                                        currentIndex = index
+                                        if (totalPages > 0 && questionsList.isNotEmpty()) {
+                                            val targetPage = (index * totalPages / questionsList.size).coerceIn(0, totalPages - 1)
+                                            loadPdfPage(targetPage)
+                                        }
+                                        showOmrSheetModal = false
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = selectedOptions[index] ?: "",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (isCurrent) Slate950 else Color.White
+                                        text = "Q${index + 1}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor
                                     )
+                                    if (isAnswered) {
+                                        Text(
+                                            text = selectedOptions[index] ?: "",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (isCurrent) Slate950 else Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -566,7 +615,7 @@ fun QuestionPaperViewerScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "180 Questions • Q${currentIndex + 1} Selected • ${selectedOptions.size}/180 Filled",
+                            text = "${questionsList.size} Questions • Q${currentIndex + 1} of ${questionsList.size} • ${selectedOptions.size}/${questionsList.size} Answered",
                             fontSize = 11.sp,
                             color = CyanPrimary
                         )
@@ -836,7 +885,8 @@ fun QuestionPaperViewerScreen(
                                     onToggleReview = { markedForReview[currentIndex] = !(markedForReview[currentIndex] ?: false) },
                                     onPrevQuestion = { if (currentIndex > 0) currentIndex-- },
                                     onNextQuestion = { if (currentIndex < questionsList.size - 1) currentIndex++ },
-                                    onOpenOmrSheet = { showOmrSheetModal = true }
+                                    onOpenOmrSheet = { showOmrSheetModal = true },
+                                    onSubmitTest = { showSubmitConfirmation = true }
                                 )
                             }
                         }
@@ -880,7 +930,8 @@ fun QuestionPaperViewerScreen(
                             onToggleReview = { markedForReview[currentIndex] = !(markedForReview[currentIndex] ?: false) },
                             onPrevQuestion = { if (currentIndex > 0) currentIndex-- },
                             onNextQuestion = { if (currentIndex < questionsList.size - 1) currentIndex++ },
-                            onOpenOmrSheet = { showOmrSheetModal = true }
+                            onOpenOmrSheet = { showOmrSheetModal = true },
+                            onSubmitTest = { showSubmitConfirmation = true }
                         )
                     }
                 }
@@ -1012,7 +1063,8 @@ fun InteractiveQuestionPanel(
     onToggleReview: () -> Unit,
     onPrevQuestion: () -> Unit,
     onNextQuestion: () -> Unit,
-    onOpenOmrSheet: () -> Unit
+    onOpenOmrSheet: () -> Unit,
+    onSubmitTest: () -> Unit
 ) {
     if (question == null) return
 
@@ -1124,11 +1176,11 @@ fun InteractiveQuestionPanel(
                 onClick = onPrevQuestion,
                 enabled = currentIndex > 0,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                border = BorderStroke(1.dp, Slate700),
+                border = BorderStroke(1.dp, if (currentIndex > 0) Slate700 else Slate850),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Previous", fontSize = 12.sp)
+                Text("Previous", fontSize = 12.sp, color = if (currentIndex > 0) Color.White else Color(0xFF64748B))
             }
 
             OutlinedButton(
@@ -1140,17 +1192,29 @@ fun InteractiveQuestionPanel(
             ) {
                 Icon(Icons.Default.GridOn, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("180 Qs OMR Grid", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("$totalQuestions Qs OMR Grid", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
-            Button(
-                onClick = onNextQuestion,
-                enabled = currentIndex < totalQuestions - 1,
-                colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text("Next", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            if (currentIndex < totalQuestions - 1) {
+                Button(
+                    onClick = onNextQuestion,
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text("Next", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            } else {
+                Button(
+                    onClick = onSubmitTest,
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Slate950, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Submit Test", color = Slate950, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         }
     }

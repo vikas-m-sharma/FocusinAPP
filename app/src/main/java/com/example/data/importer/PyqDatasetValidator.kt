@@ -96,8 +96,8 @@ object PyqDatasetValidator {
                 errors.add("[$datasetName] Batch has invalid sourceExam '$batchExam'")
             }
 
-            if (batchYear != null && (batchYear < 2005 || batchYear > 2025)) {
-                errors.add("[$datasetName] Batch has examYear outside 2005-2025 range: $batchYear")
+            if (batchYear != null && (batchYear < 2006 || batchYear > 2025)) {
+                errors.add("[$datasetName] Batch has examYear outside 2006-2025 range: $batchYear")
                 invalidYears++
             }
 
@@ -178,8 +178,8 @@ object PyqDatasetValidator {
                 }
 
                 // Year Check
-                if (qYear == null || qYear !in 2005..2025) {
-                    errors.add("[$datasetName] Question '$id' exam year outside supported range 2005-2025: $qYear")
+                if (qYear == null || qYear !in 2006..2025) {
+                    errors.add("[$datasetName] Question '$id' exam year outside supported range 2006-2025: $qYear")
                     invalidYears++
                     isItemValid = false
                 }

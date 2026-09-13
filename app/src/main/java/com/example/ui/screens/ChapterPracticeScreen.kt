@@ -72,12 +72,12 @@ fun ChapterPracticeScreen(
     }
     val missingYears = remember(allQuestions) {
         val presentYears = allQuestions.mapNotNull { it.examYear }.toSet()
-        (2005..2025).filter { !presentYears.contains(it) }
+        (2006..2025).filter { !presentYears.contains(it) }
     }
 
     // Filter states
     var selectedExamFilter by remember { mutableStateOf<String?>(null) } // null = ALL, "NEET_UG", "AIPMT"
-    var selectedYearFilter by remember { mutableStateOf("ALL") } // "ALL", "LAST_5", "LAST_10", "2005_2025"
+    var selectedYearFilter by remember { mutableStateOf("ALL") } // "ALL", "LAST_5", "LAST_10", "2006_2025"
     var selectedStatusFilter by remember { mutableStateOf("ALL") } // "ALL", "UNANSWERED", "MISTAKES"
     var selectedQuestionCount by remember { mutableIntStateOf(25) }
 
@@ -105,7 +105,7 @@ fun ChapterPracticeScreen(
         when (selectedYearFilter) {
             "LAST_5" -> list = list.filter { it.examYear != null && it.examYear >= 2020 }
             "LAST_10" -> list = list.filter { it.examYear != null && it.examYear >= 2015 }
-            "2005_2025" -> list = list.filter { it.examYear != null && it.examYear in 2005..2025 }
+            "2006_2025" -> list = list.filter { it.examYear != null && it.examYear in 2006..2025 }
         }
 
         // 3. Status filter

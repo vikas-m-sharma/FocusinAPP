@@ -144,6 +144,8 @@ class FocusinRepository(private val database: AppDatabase) {
     fun getTotalGeneratedCount(): Flow<Int> = learningDao.getTotalGeneratedCount()
     fun getGlobalYearStats(): Flow<List<com.example.data.local.dao.GlobalYearStats>> = learningDao.getGlobalYearStats()
 
+    fun getTotalImportedPapersCount(): Flow<Int> = learningDao.getTotalImportedPapersCount()
+
     fun getHistoricalCoverageReports(): Flow<List<com.example.data.catalog.YearCoverageReport>> {
         return learningDao.getGlobalYearStats().map { statsList: List<com.example.data.local.dao.GlobalYearStats> ->
             val statsMap = statsList.associateBy { it.examYear }
@@ -153,16 +155,22 @@ class FocusinRepository(private val database: AppDatabase) {
                 val actualVerified = stats?.verifiedCount ?: 0
                 val actualUnverified = stats?.unverifiedCount ?: 0
                 val actualSample = stats?.sampleCount ?: 0
+                val actualPapers = if (actualImported > 0) maxOf(1, stats?.paperCount ?: 1) else 0
                 val actualPhy = stats?.physicsCount ?: 0
                 val actualChem = stats?.chemistryCount ?: 0
                 val actualBio = stats?.biologyCount ?: 0
 
+                val rawExam = stats?.detectedExam ?: yearInfo.exam
+                val detectedExam = when (rawExam) {
+                    "NEET_UG" -> "NEET"
+                    else -> rawExam
+                }
+
                 val status = when {
                     actualImported == 0 -> com.example.data.catalog.DatasetImportStatus.NOT_IMPORTED
-                    actualVerified >= yearInfo.expectedTotal && actualImported >= yearInfo.expectedTotal -> com.example.data.catalog.DatasetImportStatus.VERIFIED
-                    actualVerified > 0 -> com.example.data.catalog.DatasetImportStatus.PARTIAL
                     actualImported < yearInfo.expectedTotal -> com.example.data.catalog.DatasetImportStatus.PARTIAL
-                    else -> com.example.data.catalog.DatasetImportStatus.IMPORTED_UNVERIFIED
+                    actualVerified >= yearInfo.expectedTotal && actualImported >= yearInfo.expectedTotal -> com.example.data.catalog.DatasetImportStatus.VERIFIED
+                    else -> com.example.data.catalog.DatasetImportStatus.UNVERIFIED
                 }
 
                 com.example.data.catalog.YearCoverageReport(
@@ -171,9 +179,11 @@ class FocusinRepository(private val database: AppDatabase) {
                     actualVerified = actualVerified,
                     actualUnverified = actualUnverified,
                     actualSample = actualSample,
+                    actualPapers = actualPapers,
                     actualPhysics = actualPhy,
                     actualChemistry = actualChem,
                     actualBiology = actualBio,
+                    detectedExam = detectedExam,
                     status = status
                 )
             }
