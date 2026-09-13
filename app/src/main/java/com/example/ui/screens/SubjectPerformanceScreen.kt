@@ -97,7 +97,7 @@ fun SubjectPerformanceScreen(
     val totalSubjectCorrect = subjectAttempts.count { it.isCorrect }
     val subjectAccuracy = if (totalSubjectQuestions > 0) {
         ((totalSubjectCorrect.toFloat() / totalSubjectQuestions) * 100).toInt()
-    } else 74
+    } else 0
 
     var sortOption by remember { mutableStateOf("ORDER") } // "ORDER", "ACCURACY_LOW", "ACCURACY_HIGH"
 

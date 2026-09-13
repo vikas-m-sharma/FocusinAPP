@@ -88,6 +88,9 @@ import com.example.ui.screens.VoiceNotesScreen
 import com.example.ui.screens.WeakTopicsScreen
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.FocusinTheme
+import com.example.ui.theme.MutedGold
+import com.example.ui.theme.MutedGoldDark
+import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.Slate950
@@ -177,11 +180,11 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                             },
                             selected = isSelected,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Slate950,
-                                selectedTextColor = CyanPrimary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = CyanPrimary
+                                selectedIconColor = MutedGoldDark,
+                                selectedTextColor = MutedGoldDark,
+                                unselectedIconColor = Slate400,
+                                unselectedTextColor = Slate400,
+                                indicatorColor = MutedGold.copy(alpha = 0.20f)
                             ),
                             onClick = {
                                 if (currentRoute != screen.route) {
@@ -289,7 +292,9 @@ fun FocusinApp(viewModel: FocusinViewModel) {
                     onPracticeTopic = { chapId, mode ->
                         navController.navigate(Screen.ChapterPractice.createRoute(chapId, mode))
                     },
-                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) }
+                    onNavigateToMistakeDiary = { navController.navigate(Screen.MistakeDiary.route) },
+                    onNavigateToQBank = { navController.navigate(Screen.QuestionBank.route) },
+                    onNavigateToFocus = { navController.navigate(Screen.Focus.route) }
                 )
             }
 

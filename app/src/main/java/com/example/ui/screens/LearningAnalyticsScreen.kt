@@ -86,17 +86,17 @@ fun LearningAnalyticsScreen(
     val easyAttempts = allQuestionAttempts.filter { it.quizType == "PRACTICE" }
     val easyAccuracy = if (easyAttempts.isNotEmpty()) {
         ((easyAttempts.count { it.isCorrect }.toFloat() / easyAttempts.size) * 100).toInt()
-    } else 85
+    } else 0
 
     val medAttempts = allQuestionAttempts.filter { it.quizType == "AI_QUIZ" }
     val medAccuracy = if (medAttempts.isNotEmpty()) {
         ((medAttempts.count { it.isCorrect }.toFloat() / medAttempts.size) * 100).toInt()
-    } else 72
+    } else 0
 
     val hardAttempts = allQuestionAttempts.filter { it.quizType == "PYQ" }
     val hardAccuracy = if (hardAttempts.isNotEmpty()) {
         ((hardAttempts.count { it.isCorrect }.toFloat() / hardAttempts.size) * 100).toInt()
-    } else 58
+    } else 0
 
     Scaffold(
         containerColor = Slate950,

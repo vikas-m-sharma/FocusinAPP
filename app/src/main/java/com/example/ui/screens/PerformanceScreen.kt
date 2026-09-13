@@ -28,13 +28,18 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -59,8 +64,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.MutedGold
+import com.example.ui.theme.MutedGoldDark
+import com.example.ui.theme.RoseError
+import com.example.ui.theme.SecondaryNavy
+import com.example.ui.theme.Slate100
+import com.example.ui.theme.Slate400
+import com.example.ui.theme.Slate500
+import com.example.ui.theme.Slate700
+import com.example.ui.theme.Slate800
+import com.example.ui.theme.Slate850
+import com.example.ui.theme.Slate900
+import com.example.ui.theme.Slate950
+import com.example.ui.theme.WarningDark
 import com.example.viewmodel.FocusinViewModel
-import kotlin.math.max
 
 @Composable
 fun PerformanceScreen(
@@ -76,10 +94,13 @@ fun PerformanceScreen(
     onNavigateToProgressComparison: () -> Unit = {},
     onNavigateToGoalsAndInsights: () -> Unit = {},
     onPracticeTopic: (String, String) -> Unit = { _, _ -> },
-    onNavigateToMistakeDiary: () -> Unit = {}
+    onNavigateToMistakeDiary: () -> Unit = {},
+    onNavigateToQBank: () -> Unit = {},
+    onNavigateToFocus: () -> Unit = {}
 ) {
     var viewPeriod by remember { mutableStateOf("WEEK") } // "WEEK", "MONTH", "YEAR"
 
+    val isUserLoggedIn by viewModel.isUserLoggedIn.collectAsState()
     val recentWeekStats by viewModel.recentWeekStats.collectAsState()
     val recentMonthStats by viewModel.recentMonthStats.collectAsState()
     val recentYearStats by viewModel.recentYearStats.collectAsState()
@@ -87,6 +108,9 @@ fun PerformanceScreen(
     val totalQuestionsAttempted by viewModel.totalQuestionsAttempted.collectAsState()
     val totalQuestionsCorrect by viewModel.totalQuestionsCorrect.collectAsState()
     val quizAttempts by viewModel.allQuizAttempts.collectAsState()
+    val allQuestionAttempts by viewModel.allQuestionAttempts.collectAsState()
+    val todayStats by viewModel.todayStats.collectAsState()
+    val todaySessions by viewModel.todaySessions.collectAsState()
 
     val activeStats = when (viewPeriod) {
         "MONTH" -> recentMonthStats
@@ -96,45 +120,60 @@ fun PerformanceScreen(
 
     val totalFocused = activeStats.sumOf { it.totalFocusedMinutes }
 
-    // Display values aligned with mockup design (18h 30m / 25h, 74%, etc.)
-    val displayHours = when {
-        totalFocused > 0 -> totalFocused / 60
-        viewPeriod == "MONTH" -> 72
-        viewPeriod == "YEAR" -> 840
-        else -> 18
-    }
-    val displayMins = when {
-        totalFocused > 0 -> totalFocused % 60
-        else -> 30
-    }
+    // Check if the user has real learning activity recorded
+    val hasLearningActivity = (totalQuestionsAttempted > 0 || quizAttempts.isNotEmpty() || totalFocused > 0)
+    val showRealPerformance = isUserLoggedIn && hasLearningActivity
+
+    // Real Focus values
+    val displayHours = totalFocused / 60
+    val displayMins = totalFocused % 60
     val targetHours = when (viewPeriod) {
         "MONTH" -> 100
         "YEAR" -> 1200
         else -> 25
     }
-    val displayCompletionPercent = when {
-        totalFocused > 0 -> ((totalFocused.toFloat() / (targetHours * 60)) * 100).toInt().coerceIn(1, 100)
-        viewPeriod == "MONTH" -> 72
-        viewPeriod == "YEAR" -> 70
-        else -> 74
-    }
+    val displayCompletionPercent = if (targetHours > 0 && totalFocused > 0) {
+        ((totalFocused.toFloat() / (targetHours * 60)) * 100).toInt().coerceIn(0, 100)
+    } else 0
 
-    val displayScore = 12
-    val streakVal = userSettings?.currentStreak?.coerceAtLeast(1) ?: 18
-    val displayStreak = max(streakVal, 18)
-    val displayScheduleDone = "85%"
+    val displayScore = todayStats?.focusScore ?: if (totalFocused > 0) 80 else 0
+    val displayStreak = userSettings?.currentStreak ?: 0
+    val completedSessionsCount = todaySessions.count { it.isCompleted }
+    val displayScheduleDone = if (todaySessions.isNotEmpty()) {
+        "${((completedSessionsCount.toFloat() / todaySessions.size) * 100).toInt()}%"
+    } else if (totalFocused > 0) "100%" else "0%"
 
-    // Learning Performance stats
-    val displayQuestions = max(totalQuestionsAttempted, 428)
+    // Real Learning Performance stats
+    val displayQuestions = totalQuestionsAttempted
     val calculatedAccuracy = if (totalQuestionsAttempted > 0) {
         ((totalQuestionsCorrect.toFloat() / totalQuestionsAttempted) * 100).toInt()
-    } else 76
+    } else 0
     val displayAccuracy = calculatedAccuracy
-    val displayTests = max(quizAttempts.size, 12)
+    val displayTests = quizAttempts.size
+
+    // Real Subject-wise stats
+    val physicsAttempts = allQuestionAttempts.filter { it.subjectName.equals("Physics", ignoreCase = true) }
+    val physicsAcc = if (physicsAttempts.isNotEmpty()) {
+        ((physicsAttempts.count { it.isCorrect }.toFloat() / physicsAttempts.size) * 100).toInt()
+    } else 0
+
+    val chemAttempts = allQuestionAttempts.filter { it.subjectName.equals("Chemistry", ignoreCase = true) }
+    val chemAcc = if (chemAttempts.isNotEmpty()) {
+        ((chemAttempts.count { it.isCorrect }.toFloat() / chemAttempts.size) * 100).toInt()
+    } else 0
+
+    val bioAttempts = allQuestionAttempts.filter {
+        it.subjectName.contains("Bio", ignoreCase = true) ||
+                it.subjectName.contains("Botany", ignoreCase = true) ||
+                it.subjectName.contains("Zoology", ignoreCase = true)
+    }
+    val bioAcc = if (bioAttempts.isNotEmpty()) {
+        ((bioAttempts.count { it.isCorrect }.toFloat() / bioAttempts.size) * 100).toInt()
+    } else 0
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0F172A) // Deep calm dark background
+        color = Slate950 // Classic Deep Calm Background (#101722)
     ) {
         Column(
             modifier = Modifier
@@ -150,7 +189,7 @@ fun PerformanceScreen(
                 Text(
                     text = "Performance",
                     style = MaterialTheme.typography.titleLarge.copy(
-                        color = Color(0xFFF8FAFC),
+                        color = Slate100,
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp
                     )
@@ -159,7 +198,7 @@ fun PerformanceScreen(
                 Text(
                     text = "Track progress. Stay motivated.",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF94A3B8),
+                        color = Slate400,
                         fontSize = 12.sp
                     )
                 )
@@ -170,260 +209,368 @@ fun PerformanceScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. Period Selector: Week | Month | Year
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        PeriodPill(
-                            label = "Week",
-                            isSelected = viewPeriod == "WEEK",
-                            onClick = { viewPeriod = "WEEK" }
-                        )
-                        PeriodPill(
-                            label = "Month",
-                            isSelected = viewPeriod == "MONTH",
-                            onClick = { viewPeriod = "MONTH" }
-                        )
-                        PeriodPill(
-                            label = "Year",
-                            isSelected = viewPeriod == "YEAR",
-                            onClick = { viewPeriod = "YEAR" }
-                        )
-                    }
-                }
-
-                // 2. Card 1: Focus Performance
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onNavigateToFocusAnalytics)
-                            .testTag("perf_card_focus"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131C31)),
-                        border = BorderStroke(1.dp, Color(0xFF1E293B))
-                    ) {
-                        Column(
+                if (!showRealPerformance) {
+                    // ========================================================
+                    // EMPTY / STARTER STATE (Only shows when no learning data exists)
+                    // ========================================================
+                    item {
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(18.dp)
+                                .testTag("perf_starter_card"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            border = BorderStroke(1.dp, Slate800)
                         ) {
-                            Text(
-                                text = "Focus Performance",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color(0xFFF8FAFC),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(22.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(MutedGoldDark.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BarChart,
+                                        contentDescription = null,
+                                        tint = MutedGoldDark,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Text(
+                                    text = "No Learning Activity Yet",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = Slate100,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    ),
+                                    textAlign = TextAlign.Center
                                 )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = if (!isUserLoggedIn) {
+                                        "Please sign in and start practicing questions, completing mock tests, or running focus timers to unlock personalized performance analytics."
+                                    } else {
+                                        "Your study analytics, accuracy charts, and subject breakdown will appear here once you solve PYQs or complete a study session."
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Slate400,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    ),
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                // Action 1: Practice Questions
+                                Button(
+                                    onClick = onNavigateToQBank,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("perf_btn_start_practice"),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MutedGold,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Practice Questions (QBank)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Action 2: Start Focus Timer
+                                Button(
+                                    onClick = onNavigateToFocus,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("perf_btn_start_focus"),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SecondaryNavy,
+                                        contentColor = Slate100
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp), tint = MutedGoldDark)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Start Focus Session", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // ========================================================
+                    // REAL PERFORMANCE DASHBOARD (When user has learning data)
+                    // ========================================================
+
+                    // 1. Period Selector: Week | Month | Year
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            PeriodPill(
+                                label = "Week",
+                                isSelected = viewPeriod == "WEEK",
+                                onClick = { viewPeriod = "WEEK" }
                             )
+                            PeriodPill(
+                                label = "Month",
+                                isSelected = viewPeriod == "MONTH",
+                                onClick = { viewPeriod = "MONTH" }
+                            )
+                            PeriodPill(
+                                label = "Year",
+                                isSelected = viewPeriod == "YEAR",
+                                onClick = { viewPeriod = "YEAR" }
+                            )
+                        }
+                    }
 
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Focus hours and percentage row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                    // 2. Card 1: Focus Performance
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onNavigateToFocusAnalytics)
+                                .testTag("perf_card_focus"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            border = BorderStroke(1.dp, Slate800)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp)
                             ) {
                                 Text(
-                                    text = "${displayHours}h ${displayMins}m / ${targetHours}h",
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        color = Color(0xFFF8FAFC),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp
-                                    )
-                                )
-                                Text(
-                                    text = "$displayCompletionPercent%",
+                                    text = "Focus Performance",
                                     style = MaterialTheme.typography.titleMedium.copy(
-                                        color = Color(0xFF00E5FF),
+                                        color = Slate100,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp
                                     )
                                 )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Focus hours and percentage row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${displayHours}h ${displayMins}m / ${targetHours}h",
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            color = Slate100,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 20.sp
+                                        )
+                                    )
+                                    Text(
+                                        text = "$displayCompletionPercent%",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            color = MutedGoldDark,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp
+                                        )
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Classic Progress Indicator
+                                LinearProgressIndicator(
+                                    progress = { (displayCompletionPercent / 100f).coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(CircleShape),
+                                    color = MutedGoldDark,
+                                    trackColor = Slate800
+                                )
+
+                                Spacer(modifier = Modifier.height(18.dp))
+
+                                // 3 Badges in a row: Focus Score, Day Streak, Schedule Done
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    // Badge 1: Focus Score
+                                    StatBadgeItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.Shield,
+                                        iconTint = EmeraldSuccess,
+                                        value = "$displayScore",
+                                        label = "Focus Score"
+                                    )
+
+                                    // Badge 2: Day Streak
+                                    StatBadgeItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.Whatshot,
+                                        iconTint = MutedGoldDark,
+                                        value = "$displayStreak",
+                                        label = "Day Streak"
+                                    )
+
+                                    // Badge 3: Schedule Done
+                                    StatBadgeItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.PieChart,
+                                        iconTint = WarningDark,
+                                        value = displayScheduleDone,
+                                        label = "Schedule Done"
+                                    )
+                                }
                             }
+                        }
+                    }
 
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Cyan Progress Indicator
-                            LinearProgressIndicator(
-                                progress = { (displayCompletionPercent / 100f).coerceIn(0f, 1f) },
+                    // 3. Card 2: Learning Performance
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onNavigateToLearningAnalytics)
+                                .testTag("perf_card_learning"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            border = BorderStroke(1.dp, Slate800)
+                        ) {
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(CircleShape),
-                                color = Color(0xFF00E5FF),
-                                trackColor = Color(0xFF1E293B)
-                            )
-
-                            Spacer(modifier = Modifier.height(18.dp))
-
-                            // 3 Badges in a row: Focus Score, Day Streak, Schedule Done
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(18.dp)
                             ) {
-                                // Badge 1: Focus Score
-                                StatBadgeItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.Shield,
-                                    iconTint = Color(0xFF10B981),
-                                    value = "$displayScore",
-                                    label = "Focus Score"
+                                Text(
+                                    text = "Learning Performance",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = Slate100,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
                                 )
 
-                                // Badge 2: Day Streak
-                                StatBadgeItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.Whatshot,
-                                    iconTint = Color(0xFFA855F7),
-                                    value = "$displayStreak",
-                                    label = "Day Streak"
-                                )
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                                // Badge 3: Schedule Done
-                                StatBadgeItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.PieChart,
-                                    iconTint = Color(0xFFF59E0B),
-                                    value = displayScheduleDone,
-                                    label = "Schedule Done"
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    // Column 1: Questions
+                                    LearningMetricItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.HelpOutline,
+                                        iconTint = MutedGoldDark,
+                                        iconBg = MutedGoldDark.copy(alpha = 0.15f),
+                                        value = "$displayQuestions",
+                                        label = "Questions"
+                                    )
+
+                                    // Column 2: Accuracy
+                                    LearningMetricItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.Check,
+                                        iconTint = EmeraldSuccess,
+                                        iconBg = EmeraldSuccess.copy(alpha = 0.15f),
+                                        value = "$displayAccuracy%",
+                                        label = "Accuracy"
+                                    )
+
+                                    // Column 3: Tests Completed
+                                    LearningMetricItem(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.Quiz,
+                                        iconTint = WarningDark,
+                                        iconBg = WarningDark.copy(alpha = 0.15f),
+                                        value = "$displayTests",
+                                        label = "Tests Completed"
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                // 3. Card 2: Learning Performance
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onNavigateToLearningAnalytics)
-                            .testTag("perf_card_learning"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131C31)),
-                        border = BorderStroke(1.dp, Color(0xFF1E293B))
-                    ) {
-                        Column(
+                    // 4. Card 3: Subject Performance
+                    item {
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(18.dp)
+                                .clickable { onNavigateToSubjectPerformance("Physics") }
+                                .testTag("perf_card_subjects"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Slate900),
+                            border = BorderStroke(1.dp, Slate800)
                         ) {
-                            Text(
-                                text = "Learning Performance",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color(0xFFF8FAFC),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp)
                             ) {
-                                // Column 1: Questions
-                                LearningMetricItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.HelpOutline,
-                                    iconTint = Color(0xFF38BDF8),
-                                    iconBg = Color(0xFF38BDF8).copy(alpha = 0.15f),
-                                    value = "$displayQuestions",
-                                    label = "Questions"
+                                Text(
+                                    text = "Subject Performance",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = Slate100,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
                                 )
 
-                                // Column 2: Accuracy
-                                LearningMetricItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.Check,
-                                    iconTint = Color(0xFF10B981),
-                                    iconBg = Color(0xFF10B981).copy(alpha = 0.15f),
-                                    value = "$displayAccuracy%",
-                                    label = "Accuracy"
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Physics Row
+                                SubjectPerformanceBarRow(
+                                    name = "Physics",
+                                    icon = Icons.Default.ElectricBolt,
+                                    iconTint = MutedGoldDark,
+                                    progress = physicsAcc / 100f,
+                                    percentageText = if (physicsAttempts.isNotEmpty()) "$physicsAcc%" else "0%",
+                                    barColor = MutedGoldDark,
+                                    onClick = { onNavigateToSubjectPerformance("Physics") }
                                 )
 
-                                // Column 3: Tests Completed
-                                LearningMetricItem(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.Quiz,
-                                    iconTint = Color(0xFFEC4899),
-                                    iconBg = Color(0xFFEC4899).copy(alpha = 0.15f),
-                                    value = "$displayTests",
-                                    label = "Tests Completed"
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Chemistry Row
+                                SubjectPerformanceBarRow(
+                                    name = "Chemistry",
+                                    icon = Icons.Default.Science,
+                                    iconTint = WarningDark,
+                                    progress = chemAcc / 100f,
+                                    percentageText = if (chemAttempts.isNotEmpty()) "$chemAcc%" else "0%",
+                                    barColor = WarningDark,
+                                    onClick = { onNavigateToSubjectPerformance("Chemistry") }
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Biology Row
+                                SubjectPerformanceBarRow(
+                                    name = "Biology",
+                                    icon = Icons.Default.Spa,
+                                    iconTint = EmeraldSuccess,
+                                    progress = bioAcc / 100f,
+                                    percentageText = if (bioAttempts.isNotEmpty()) "$bioAcc%" else "0%",
+                                    barColor = EmeraldSuccess,
+                                    onClick = { onNavigateToSubjectPerformance("Biology") }
                                 )
                             }
-                        }
-                    }
-                }
-
-                // 4. Card 3: Subject Performance
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateToSubjectPerformance("Physics") }
-                            .testTag("perf_card_subjects"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131C31)),
-                        border = BorderStroke(1.dp, Color(0xFF1E293B))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp)
-                        ) {
-                            Text(
-                                text = "Subject Performance",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color(0xFFF8FAFC),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Physics Row
-                            SubjectPerformanceBarRow(
-                                name = "Physics",
-                                icon = Icons.Default.ElectricBolt,
-                                iconTint = Color(0xFF38BDF8),
-                                progress = 0.72f,
-                                percentageText = "72%",
-                                barColor = Color(0xFF38BDF8),
-                                onClick = { onNavigateToSubjectPerformance("Physics") }
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Chemistry Row
-                            SubjectPerformanceBarRow(
-                                name = "Chemistry",
-                                icon = Icons.Default.Science,
-                                iconTint = Color(0xFF00E5FF),
-                                progress = 0.78f,
-                                percentageText = "78%",
-                                barColor = Color(0xFF00E5FF),
-                                onClick = { onNavigateToSubjectPerformance("Chemistry") }
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Biology Row
-                            SubjectPerformanceBarRow(
-                                name = "Biology",
-                                icon = Icons.Default.Spa,
-                                iconTint = Color(0xFF10B981),
-                                progress = 0.84f,
-                                percentageText = "84%",
-                                barColor = Color(0xFF10B981),
-                                onClick = { onNavigateToSubjectPerformance("Biology") }
-                            )
                         }
                     }
                 }
@@ -439,7 +586,7 @@ fun PerformanceScreen(
                         Text(
                             text = "\"Progress is the result of consistent effort.\"",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF64748B),
+                                color = Slate500,
                                 fontSize = 12.sp,
                                 fontStyle = FontStyle.Italic
                             ),
@@ -448,7 +595,7 @@ fun PerformanceScreen(
                     }
                 }
 
-                // 6. Quick Access Navigation Hub (to explore all 10 Performance screens)
+                // 6. Quick Access Navigation Hub (explore insights)
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -457,7 +604,7 @@ fun PerformanceScreen(
                         Text(
                             text = "More Insights & Tools",
                             style = MaterialTheme.typography.titleSmall.copy(
-                                color = Color(0xFF94A3B8),
+                                color = Slate400,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp
                             )
@@ -471,14 +618,14 @@ fun PerformanceScreen(
                                 modifier = Modifier.weight(1f),
                                 label = "Weak Topics",
                                 icon = Icons.Default.WarningAmber,
-                                tint = Color(0xFFEC4899),
+                                tint = WarningDark,
                                 onClick = onNavigateToWeakTopics
                             )
                             HubQuickButton(
                                 modifier = Modifier.weight(1f),
                                 label = "Activity Log",
                                 icon = Icons.Default.History,
-                                tint = Color(0xFF38BDF8),
+                                tint = MutedGoldDark,
                                 onClick = onNavigateToRecentActivity
                             )
                         }
@@ -491,14 +638,14 @@ fun PerformanceScreen(
                                 modifier = Modifier.weight(1f),
                                 label = "Comparison",
                                 icon = Icons.Default.BarChart,
-                                tint = Color(0xFF00E5FF),
+                                tint = MutedGold,
                                 onClick = onNavigateToProgressComparison
                             )
                             HubQuickButton(
                                 modifier = Modifier.weight(1f),
                                 label = "Goals",
                                 icon = Icons.Default.Flag,
-                                tint = Color(0xFF10B981),
+                                tint = EmeraldSuccess,
                                 onClick = onNavigateToGoalsAndInsights
                             )
                         }
@@ -507,7 +654,7 @@ fun PerformanceScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = "Mistake Diary (Galti Tracker) 🔥",
                             icon = Icons.Default.Whatshot,
-                            tint = Color(0xFFEF4444),
+                            tint = RoseError,
                             onClick = onNavigateToMistakeDiary
                         )
 
@@ -515,7 +662,7 @@ fun PerformanceScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = "AI Performance Coach",
                             icon = Icons.Default.AutoAwesome,
-                            tint = Color(0xFFA855F7),
+                            tint = MutedGoldDark,
                             onClick = onNavigateToAiCoach
                         )
                     }
@@ -538,7 +685,7 @@ private fun PeriodPill(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0xFF00E5FF) else Color(0xFF131C31))
+            .background(if (isSelected) MutedGold else Slate900)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
@@ -547,7 +694,7 @@ private fun PeriodPill(
             text = label,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF94A3B8),
+                color = if (isSelected) Color.White else Slate400,
                 fontSize = 13.sp
             )
         )
@@ -576,7 +723,7 @@ private fun StatBadgeItem(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(
-                color = Color(0xFFF8FAFC),
+                color = Slate100,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
@@ -585,7 +732,7 @@ private fun StatBadgeItem(
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF94A3B8),
+                color = Slate400,
                 fontSize = 11.sp
             ),
             textAlign = TextAlign.Center
@@ -624,7 +771,7 @@ private fun LearningMetricItem(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(
-                color = Color(0xFFF8FAFC),
+                color = Slate100,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
@@ -633,7 +780,7 @@ private fun LearningMetricItem(
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF94A3B8),
+                color = Slate400,
                 fontSize = 11.sp
             ),
             textAlign = TextAlign.Center
@@ -667,7 +814,7 @@ private fun SubjectPerformanceBarRow(
         Text(
             text = name,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFFF8FAFC),
+                color = Slate100,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp
             ),
@@ -680,13 +827,13 @@ private fun SubjectPerformanceBarRow(
                 .height(6.dp)
                 .clip(CircleShape),
             color = barColor,
-            trackColor = Color(0xFF1E293B)
+            trackColor = Slate800
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = percentageText,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFFF8FAFC),
+                color = Slate100,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )
@@ -705,8 +852,8 @@ private fun HubQuickButton(
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF131C31)),
-        border = BorderStroke(1.dp, Color(0xFF1E293B))
+        colors = CardDefaults.cardColors(containerColor = Slate900),
+        border = BorderStroke(1.dp, Slate800)
     ) {
         Row(
             modifier = Modifier
@@ -726,7 +873,7 @@ private fun HubQuickButton(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFF8FAFC),
+                        color = Slate100,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp
                     )
@@ -735,7 +882,7 @@ private fun HubQuickButton(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = null,
-                tint = Color(0xFF64748B),
+                tint = Slate500,
                 modifier = Modifier.size(16.dp)
             )
         }

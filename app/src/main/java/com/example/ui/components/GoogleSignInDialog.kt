@@ -89,6 +89,22 @@ fun GoogleSignInDialog(
 
     var demoName by remember { mutableStateOf("NEET Scholar") }
     var demoEmail by remember { mutableStateOf("scholar.neet@gmail.com") }
+    var showMfaDialog by remember { mutableStateOf(false) }
+
+    if (showMfaDialog) {
+        GoogleMfaDialog(
+            userName = demoName,
+            userEmail = demoEmail,
+            onVerified = {
+                showMfaDialog = false
+                viewModel.signInWithGoogle(demoName, demoEmail)
+                onDismissRequest()
+            },
+            onDismissRequest = {
+                showMfaDialog = false
+            }
+        )
+    }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -298,8 +314,7 @@ fun GoogleSignInDialog(
                 // PRIMARY ACTION BUTTON: Real Credential Manager
                 Button(
                     onClick = {
-                        viewModel.signInWithGoogle(demoName, demoEmail)
-                        onDismissRequest()
+                        showMfaDialog = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -334,8 +349,7 @@ fun GoogleSignInDialog(
                 // QUICK LOCAL / DEMO PROFILE (Zero-block fallback for emulators without Play Services)
                 OutlinedButton(
                     onClick = {
-                        viewModel.signInWithGoogle(demoName, demoEmail)
-                        onDismissRequest()
+                        showMfaDialog = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()

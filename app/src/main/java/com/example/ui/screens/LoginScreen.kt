@@ -75,6 +75,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.ui.components.GoogleMfaDialog
 import com.example.viewmodel.FocusinViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,6 +103,9 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
     var showGoogleAccountPicker by remember { mutableStateOf(false) }
+    var showGoogleMfaDialog by remember { mutableStateOf(false) }
+    var pendingGoogleName by remember { mutableStateOf("") }
+    var pendingGoogleEmail by remember { mutableStateOf("") }
 
     val examList = listOf("NEET (UG)", "JEE Main", "CBSE 12th", "Other")
 
@@ -720,8 +724,10 @@ fun LoginScreen(
                         email = "vs5083221@gmail.com",
                         avatarColor = Color(0xFF4285F4),
                         onClick = {
+                            pendingGoogleName = "Vikas Sharma"
+                            pendingGoogleEmail = "vs5083221@gmail.com"
                             showGoogleAccountPicker = false
-                            performLogin("Vikas Sharma", "vs5083221@gmail.com", isGoogle = true)
+                            showGoogleMfaDialog = true
                         }
                     )
 
@@ -733,8 +739,10 @@ fun LoginScreen(
                         email = "aspirant.neet@gmail.com",
                         avatarColor = Color(0xFF10B981),
                         onClick = {
+                            pendingGoogleName = "NEET Aspirant"
+                            pendingGoogleEmail = "aspirant.neet@gmail.com"
                             showGoogleAccountPicker = false
-                            performLogin("NEET Aspirant", "aspirant.neet@gmail.com", isGoogle = true)
+                            showGoogleMfaDialog = true
                         }
                     )
 
@@ -751,6 +759,21 @@ fun LoginScreen(
                 }
             }
         }
+    }
+
+    // Google MFA (Multi-Factor Authentication / 2-Step Verification) Dialog
+    if (showGoogleMfaDialog) {
+        GoogleMfaDialog(
+            userName = pendingGoogleName,
+            userEmail = pendingGoogleEmail,
+            onVerified = {
+                showGoogleMfaDialog = false
+                performLogin(pendingGoogleName, pendingGoogleEmail, isGoogle = true)
+            },
+            onDismissRequest = {
+                showGoogleMfaDialog = false
+            }
+        )
     }
 
     // Forgot Password Dialog

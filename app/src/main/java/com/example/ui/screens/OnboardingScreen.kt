@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.GoogleMfaDialog
 import com.example.ui.theme.AmethystAccent
 import com.example.ui.theme.CyanBright
 import com.example.ui.theme.CyanPrimary
@@ -76,6 +77,7 @@ fun OnboardingScreen(
 ) {
     var googleName by remember { mutableStateOf("Vikas") }
     var googleEmail by remember { mutableStateOf("vikas.scholar@gmail.com") }
+    var showMfaDialog by remember { mutableStateOf(false) }
 
     val selectedGoals = remember { mutableStateListOf("Competitive Exam Prep", "Programming") }
     var dailyTargetHours by remember { mutableFloatStateOf(6f) }
@@ -235,9 +237,7 @@ fun OnboardingScreen(
 
                 Button(
                     onClick = {
-                        val goalsStr = selectedGoals.joinToString(", ")
-                        onGoogleSignIn?.invoke(googleName, googleEmail)
-                        onComplete(goalsStr, dailyTargetHours.toInt(), preferredSchedule)
+                        showMfaDialog = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -256,6 +256,22 @@ fun OnboardingScreen(
                     }
                 }
             }
+        }
+
+        if (showMfaDialog) {
+            GoogleMfaDialog(
+                userName = googleName,
+                userEmail = googleEmail,
+                onVerified = {
+                    showMfaDialog = false
+                    val goalsStr = selectedGoals.joinToString(", ")
+                    onGoogleSignIn?.invoke(googleName, googleEmail)
+                    onComplete(goalsStr, dailyTargetHours.toInt(), preferredSchedule)
+                },
+                onDismissRequest = {
+                    showMfaDialog = false
+                }
+            )
         }
 
         // STEP 1: GOALS

@@ -8,48 +8,76 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ClassicBlueLight,
-    onPrimary = Color.White,
-    primaryContainer = Slate850,
-    onPrimaryContainer = ClassicBlueLight,
-    secondary = EmeraldSuccess,
-    onSecondary = Slate950,
-    secondaryContainer = Slate800,
-    onSecondaryContainer = EmeraldSuccess,
-    tertiary = ClassicGoldAccent,
-    onTertiary = Color.White,
-    background = Slate950,
-    onBackground = Slate100,
-    surface = Slate900,
-    onSurface = Slate100,
-    surfaceVariant = Slate850,
-    onSurfaceVariant = Slate400,
-    outline = Slate700,
-    error = RoseError,
+    primary = MutedGoldDark,             // #C2A36B - Classic Muted Gold accent
+    onPrimary = BackgroundDark,          // #101722
+    primaryContainer = ElevatedCardDark, // #24324A
+    onPrimaryContainer = TextPrimaryDark,// #F7F5EF
+    secondary = SuccessDark,             // #5B9B78
+    onSecondary = BackgroundDark,        // #101722
+    secondaryContainer = SurfaceDark,    // #172033
+    onSecondaryContainer = MutedGoldDark,// #C2A36B
+    tertiary = MutedGoldDark,            // #C2A36B
+    onTertiary = BackgroundDark,
+    background = BackgroundDark,         // #101722
+    onBackground = TextPrimaryDark,      // #F7F5EF
+    surface = SurfaceDark,               // #172033
+    onSurface = TextPrimaryDark,         // #F7F5EF
+    surfaceVariant = CardDark,           // #1D2939
+    onSurfaceVariant = TextSecondaryDark,// #B8C0CC
+    outline = BorderDark,                // #344054
+    error = ErrorDark,                   // #D06B6B
     onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = ClassicBluePrimary,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEFF6FF),
-    onPrimaryContainer = Color(0xFF1E40AF),
-    secondary = EmeraldSuccess,
+    primary = DeepNavy,                  // #172033
+    onPrimary = TextPrimaryDark,         // #F7F5EF
+    primaryContainer = SecondaryNavy,    // #24324A
+    onPrimaryContainer = TextPrimaryDark,// #F7F5EF
+    secondary = MutedGold,               // #B08D57
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE8F5E9),
-    onSecondaryContainer = Color(0xFF1B5E20),
-    tertiary = ClassicGoldAccent,
+    secondaryContainer = WarmIvory,      // #F3F0E7
+    onSecondaryContainer = DarkGold,     // #8F7042
+    tertiary = DarkGold,                 // #8F7042
     onTertiary = Color.White,
-    background = Color(0xFFF8FAFC),
-    onBackground = Slate900,
-    surface = Color.White,
-    onSurface = Slate900,
-    surfaceVariant = Color(0xFFF1F5F9),
-    onSurfaceVariant = Slate700,
-    outline = Color(0xFFCBD5E1),
-    error = RoseError,
+    background = SurfaceLight,           // #F7F5EF
+    onBackground = TextPrimaryLight,     // #172033
+    surface = CardLight,                 // #FFFFFF
+    onSurface = TextPrimaryLight,        // #172033
+    surfaceVariant = WarmIvory,          // #F3F0E7
+    onSurfaceVariant = TextSecondaryLight,// #667085
+    outline = BorderLight,               // #D9D5CB
+    error = ErrorLight,                  // #B54747
     onError = Color.White
 )
+
+/**
+ * FOCUSIN Classic UI Color System
+ * Provides centralized semantic access to academic, calm, high-focus tokens.
+ */
+object FocusinColors {
+    // Light
+    val PrimaryNavy = DeepNavy
+    val NavySecondary = SecondaryNavy
+    val CanvasLight = SurfaceLight
+    val CardSurfaceLight = CardLight
+    val Ivory = WarmIvory
+    val GoldAccent = MutedGold
+    val GoldDark = DarkGold
+
+    // Dark
+    val CanvasDark = BackgroundDark
+    val SurfaceDarkNavy = SurfaceDark
+    val CardDarkNavy = CardDark
+    val ElevatedDarkNavy = ElevatedCardDark
+    val GoldAccentDark = MutedGoldDark
+
+    // Status
+    val Success = SuccessDark
+    val Warning = WarningDark
+    val Error = ErrorDark
+    val Disabled = DisabledGray
+}
 
 @Composable
 fun FocusinTheme(
@@ -74,4 +102,5 @@ fun MyApplicationTheme(
 ) {
     FocusinTheme(darkTheme = darkTheme, content = content)
 }
+
 

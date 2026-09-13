@@ -90,14 +90,14 @@ fun FocusAnalyticsScreen(
     val totalFocused = currentStats.sumOf { it.totalFocusedMinutes }
     val totalHours = totalFocused / 60
     val totalMins = totalFocused % 60
-    val avgScore = if (currentStats.isNotEmpty()) {
+    val avgScore = if (currentStats.isNotEmpty() && currentStats.any { it.totalFocusedMinutes > 0 }) {
         currentStats.map { it.focusScore }.average().toInt()
-    } else 85
+    } else 0
 
     val bestDay = currentStats.maxByOrNull { it.totalFocusedMinutes }
     val avgSessionMinutes = if (historyRecords.isNotEmpty()) {
-        historyRecords.map { it.actualDurationSeconds / 60 }.average().toInt().coerceAtLeast(25)
-    } else 45
+        historyRecords.map { it.actualDurationSeconds / 60 }.average().toInt()
+    } else 0
 
     Scaffold(
         containerColor = Slate950,
